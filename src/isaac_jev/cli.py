@@ -94,6 +94,7 @@ def main():
     p=sub.add_parser("mode");p.add_argument("mode",choices=["manual","shadow","ai"]);p.add_argument("--port",type=int,default=9527)
     sub.add_parser("actions")
     p=sub.add_parser("inspect");p.add_argument("path")
+    p=sub.add_parser("room-timeline");p.add_argument("recordings");p.add_argument("--output",required=True)
     p=sub.add_parser("mock-client");p.add_argument("--frames",type=int,default=90);p.add_argument("--port",type=int,default=9527)
     p=sub.add_parser("prepare-dataset");p.add_argument("recordings");p.add_argument("--output",required=True);p.add_argument("--stride",type=int,default=1)
     p.add_argument("--validation-run",action="append",default=[],help="Reserve this complete run for validation; repeat for multiple runs")
@@ -113,6 +114,9 @@ def main():
     elif args.cmd=="probe":asyncio.run(probe(args))
     elif args.cmd=="actions":print(json.dumps(action_map(),indent=2))
     elif args.cmd=="inspect":inspect_recording(args.path)
+    elif args.cmd=="room-timeline":
+        from .rooms import export_room_timeline
+        print(json.dumps(export_room_timeline(args.recordings,args.output),ensure_ascii=False,indent=2))
     elif args.cmd=="mock-client":asyncio.run(mock_client(args))
     elif args.cmd=="prepare-dataset":
         from .training import prepare_dataset

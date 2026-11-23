@@ -1,5 +1,6 @@
 """Conservative retrospective labels, never observable policy facts or causal proof."""
 from collections import defaultdict
+from .rooms import combat_active
 
 DEFAULT_OUTCOME_WINDOW = 30
 RECENT_DAMAGE_FRAMES = 45
@@ -72,6 +73,8 @@ def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OU
              "causal_claim": False}
     # Same-frame callbacks can precede input sampling; do not assign them to this action.
     end = min(len(segment)-1, action_index + window_frames)
+    combat_ended_at = next((i for i in range(action_index, end+1) if not combat_active(segment[i])), None)
+    if combat_ended_at is not None:end=combat_ended_at
     ambiguous = action_index in evidence
     for i in range(action_index+1, end+1):
         if evidence.get(i) == "confirmed_player_damage":
@@ -79,7 +82,7 @@ def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OU
             return {**label, "label": "negative", "weight": round(0.25+0.75*(1-lag/window_frames), 4),
                     "damage_after_action_frames": lag, "reason": "confirmed_damage_in_future_trajectory"}
         ambiguous |= i in evidence
-    if end < action_index + window_frames:
+    if end < action_index + window_frames and combat_ended_at is None:
         return label
     if ambiguous:
         return {**label, "reason": "ambiguous_health_or_damage_event"}
@@ -92,4 +95,5 @@ def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OU
         return {**label, "reason": "no_observed_threat"}
     if any(not f["player"].get("controls_enabled", True) for f in segment[action_index:end+1]):
         return {**label, "reason": "controls_disabled_in_window"}
-    return {**label, "label": "positive", "weight": 1.0, "reason": "complete_window_no_observed_damage_under_threat"}
+    return {**label, "label": "positive", "weight": 1.0,
+            "reason": "no_observed_damage_through_combat_end" if combat_ended_at is not None else "complete_window_no_observed_damage_under_threat"}

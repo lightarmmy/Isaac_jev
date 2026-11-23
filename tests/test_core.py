@@ -225,6 +225,7 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotEqual(second,third)
                 writer.close();await writer.wait_closed();await asyncio.sleep(0.08)
                 self.assertEqual(sum(m.get("type")=="frame" for m in iter_messages(Path(tmp))),3)
+                self.assertEqual(sum(m.get("event")=="room_observed" for m in iter_messages(Path(tmp))),3)
             finally:await hub.close()
 
     async def test_explicit_record_stop_is_preserved_across_reconnect(self):

@@ -10,6 +10,7 @@ from .features import contract,policy_observation,HISTORY_OFFSETS,CONDITIONS,DEP
 from .outcomes import segment_frames,collect_player_damage,damage_evidence,label_outcome,event_key
 from .recording import iter_messages
 from .bridge import request_control
+from .rooms import TRAINING_PHASE,combat_active
 
 def split_for_run(run_id):
     bucket=int(hashlib.sha256(run_id.encode()).hexdigest()[:8],16)%10
@@ -67,7 +68,7 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
                 observation,frame=segment[index],segment[index+1]
                 if frame["player"].get("dead") or observation["player"].get("dead"):continue
                 if not observation["player"].get("controls_enabled",True):continue
-                if observation["room"].get("clear") and not any(e.get("kind")=="projectile" for e in observation["entities"]):continue
+                if not combat_active(observation) or not combat_active(frame):continue
                 action,attempt=label_from_input(frame["human_input"])
                 item=observation["player"].get("active",{})
                 active=bool(attempt and item.get("ready") and (*event_key(frame),item.get("id")) in uses)
@@ -94,7 +95,8 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
              "segment_boundaries":unaligned,"active_attempts":active_attempts,"diagnostic_sessions_excluded":True,
              "outcome_window_frames":outcome_window_frames,"outcome_counts":{k:dict(v) for k,v in outcome_counts.items()},
              "confirmed_damage_events_by_split":dict(damage_counts),
-             "outcome_reasons":dict(reasons),"outcome_warning":"Observed trajectory association, not causal action correctness"}
+             "outcome_reasons":dict(reasons),"outcome_warning":"Observed trajectory association, not causal action correctness",
+             "training_phase":TRAINING_PHASE}
     (output/"dataset.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
     print(json.dumps(summary,ensure_ascii=False,indent=2))
     if not counts["train"] or not counts["validation"]:
@@ -115,6 +117,7 @@ def train(args):
     from torch.utils.data import DataLoader,TensorDataset
     dataset=Path(args.dataset);output=Path(args.output)
     meta=json.loads((dataset/"dataset.json").read_text(encoding="utf-8"))
+    if meta.get("training_phase")!=TRAINING_PHASE:raise ValueError("Rebuild the dataset for hostile-enemy/projectile combat phases")
     if any(meta.get(k)!=v for k,v in contract().items()):raise ValueError("Dataset feature/rule contract differs from the current code")
     rows=[json.loads(l) for l in (dataset/"samples.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     groups={}
@@ -200,6 +203,7 @@ def train(args):
     model.load_state_dict(load_file(str(output/"head.safetensors")))
     config={**contract(),"model":args.model,"revision":revision,"embedding_size":size,"numeric_size":numeric.shape[1],
             "artifact_purpose":"workflow-validation",
+            "training_phase":TRAINING_PHASE,
             "outcome_window_frames":meta["outcome_window_frames"],"training_conditions":list(CONDITIONS),
             "model_selection":"positive-validation-joint-nll" if positive_val else "conditional-validation-joint-nll-no-positive-validation",
             "head_hidden_size":256,"max_length":args.max_length,"dtype":"bfloat16","hold_frames":3,
@@ -269,7 +273,7 @@ async def infer(args):
             key=(frame["run_id"],frame["game_frame"])
             if key==previous:await asyncio.sleep(0.01);continue
             previous=key
-            if frame["player"].get("dead") or (frame["room"].get("clear") and args.mode=="ai"):
+            if frame["player"].get("dead") or (not combat_active(frame) and args.mode=="ai"):
                 await asyncio.sleep(0.05);continue
             if "policy_history" not in reply:raise RuntimeError("Restart the bridge to enable v3 short-term history")
             prompt,numeric,names=policy_observation(frame,condition=cfg["deployment_condition"],history_facts=reply["policy_history"])

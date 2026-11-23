@@ -2,6 +2,24 @@
 
 协议版本 1；动作版本 `move9-shoot5-active-edge-v2`；当前特征版本 `combat-projectiles-history-conditioned-v3`。本文件以下原始采集说明仍适用；当前策略、结果条件及三个输出分支的详细契约以 [CONDITIONED_POLICY.md](CONDITIONED_POLICY.md) 为准，后文 v2 策略/训练描述作为旧版记录。
 
+## 房间时间点与控制阶段
+
+完整原始帧持续保存，包括清房后的踩按钮、拾取和走门。后台根据状态变化写入 `room_entered`（进入下一房间）、`room_cleared`（游戏清房标志转为 true）、`combat_started` 和 `combat_ended`（敌人/弹幕阶段变化）。开始录制或重连后的第一帧只标为 `room_observed`，因为无法知道此前实际进入时间。
+
+事件保留房间 ID、游戏逻辑帧号、`game_time_ms`、接收时间和上一观测帧；`source=observed_frame_transition` 表示按 30 Hz 采样推导的时间点，不是精确游戏回调时间。缺帧时 `consecutive_frames=false`，事件时间只是首次观察到变化的帧。
+
+当前普通泪弹场景以仍存活的敌对活动 NPC 或敌方 projectile 判断战斗，不单独依赖 `room.clear`。清房后有残留敌方弹幕继续作为战斗数据；敌人和弹幕都消失后为 planning，`combat_ended.next_controller=planner`，规划层可处理按钮、拾取和房间路线。友方/死亡弹幕和非活动 NPC 不阻挡切换。复杂激光、炸弹和地面效果的危险判断仍需后续扩充。
+
+训练要求观测帧和目标动作帧都处于战斗阶段，planning 动作帧不进战斗头。好坏标签最多观察至当前战斗结束，随后踩按钮、交易或走路导致的生命变化不会回头归因给战斗动作。数据集保存 `training_phase=hostile-enemy-or-projectile-pair-v1`；旧版准备好的数据集需从原始录制重新转换，已有工作流验证权重仍保留。
+
+旧数据可导出统一时间线：
+
+```powershell
+.venv\Scripts\python.exe -X utf8 run.py room-timeline recordings --output .local/room-timeline.jsonl
+```
+
+该命令跳过仍在写入的文件并报告数量，等当前片段自动封存后再导出即可。控制阶段是供后续规划器读取的接口，目前尚未接入 DeepSeek API 自动执行。
+
 ## 原始采集
 
 使用 REPENTOGON 的 `MC_PRE_UPDATE` 记录回调处的原始状态和输入，更新频率为 30 Hz。实机发现 `MC_USE_ITEM` 会早于同帧的采样：例如帧 N 的道具使用事件已出现，帧 N 的充能已经扣除。因此示范转换必须以观测帧 N 配对操作帧 N+1；同房间、同整局且逻辑帧连续才生成样本。暂停期间没有新的逻辑帧，不计作战斗样本。

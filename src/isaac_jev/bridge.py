@@ -9,6 +9,7 @@ import uuid
 from .actions import Action,MAX_OBSERVATION_AGE_FRAMES
 from .protocol import MAX_MESSAGE_BYTES, PROTOCOL_VERSION, MODES, decode, encode, validate_frame
 from .recording import SessionRecorder
+from .rooms import RoomTimeline
 
 class BridgeServer:
     def __init__(self, host="127.0.0.1", port=9527, record_root: Path | None = None, status_path: Path | None = None, recording_enabled=True, record_purpose="demonstration"):
@@ -21,6 +22,7 @@ class BridgeServer:
         self.record_purpose = record_purpose
         self.recorder = self._new_recorder() if self.recording_enabled else None
         self._recording_run = None
+        self._room_timeline = RoomTimeline()
         self.latest = None
         self._recent_frames = deque(maxlen=19)
         self.last_received = None
@@ -40,6 +42,7 @@ class BridgeServer:
         old=self.recorder
         self.recorder=self._new_recorder() if reopen and self.recording_enabled else None
         self._recording_run=None
+        self._room_timeline.reset()
         if old:
             old.metadata["boundary_reason"]=reason
             await asyncio.to_thread(old.close)
@@ -89,6 +92,7 @@ class BridgeServer:
             self.mod_writer, self.hello, is_mod = writer, first, True
             self._last_key = None
             self._recent_frames.clear()
+            self._room_timeline.reset()
             if replaced:await self._seal_recording("connection_replaced",reopen=True)
             if self.recording_enabled and self.recorder is None:self.recorder=self._new_recorder()
             if self.recorder:
@@ -112,6 +116,10 @@ class BridgeServer:
                                 raise ValueError("duplicate or out-of-order frame")
                             self.frame_gaps += max(0, key[1] - self._last_key[1] - 1)
                         self._last_key = key
+                        msg["received_at_unix"] = time.time()
+                        room_events = self._room_timeline.observe(msg)
+                        if self.recorder:
+                            for event in room_events:self.recorder.append(event)
                         if (self.latest and (msg["run_id"] != self.latest["run_id"]
                                 or msg["room"]["id"] != self.latest["room"]["id"]
                                 or msg["mode"] != self.latest["mode"]
@@ -132,6 +140,7 @@ class BridgeServer:
                                 await self._seal_recording("run_started",reopen=True)
                             self._recording_run=msg.get("run_id")
                             self._last_key=None;self._recent_frames.clear()
+                            self._room_timeline.reset()
                         self.received_events += 1
                     else:
                         raise ValueError("unsupported message type")
@@ -175,6 +184,7 @@ class BridgeServer:
             self.record_purpose=purpose
             self.recorder=self._new_recorder() if self.recording_enabled else None
             self._recording_run=None
+            self._room_timeline.reset()
             if old:
                 if completed_purpose:old.metadata["purpose"]=completed_purpose
                 await asyncio.to_thread(old.close)
