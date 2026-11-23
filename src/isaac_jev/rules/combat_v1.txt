@@ -13,3 +13,11 @@ This first protocol does not cover charge weapons, dual characters, or every
 item interaction. Unsupported mechanics are recorded and require added rules
 and demonstrations before deploying a policy for them. Never use future draws,
 undiscovered map contents, or generator seeds as policy inputs.
+Projectiles list the nearest eight hostile bullets relative to the player;
+other bullets still contribute to movement risk. Positions, velocities, height,
+falling speed and flags describe observed motion, not guaranteed future paths.
+History lists past snapshots only; missing entries mean unavailable observations.
+The outcome condition is a requested behavior, not knowledge of the future:
+positive means observed avoidance of damage under threat, negative means
+observed damage-associated behavior, unknown means unassessed behavior.
+When positive is requested, favor avoiding damage while maintaining useful fire.

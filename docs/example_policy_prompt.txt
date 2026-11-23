@@ -1,0 +1,19 @@
+Isaac combat policy, basic tears and ordinary single-player movement.
+Coordinates are game world units; x increases rightward and y downward.
+Movement and shooting can happen at the same time. Movement has eight directions
+and stay; basic shooting has four cardinal directions and none. A command only
+lasts for a few simulation updates. Avoid harmful enemies, projectiles, fire,
+spikes, pits when unable to fly, and blocked tiles. Enemy velocity and the recent
+state matter: the closest object need not be the most dangerous one. Trajectory
+risk estimates assume short constant-velocity motion and are approximate.
+Maintain useful firing alignment while keeping an escape route. Invulnerable
+or friendly entities are not ordinary attack targets. Active item use is an
+independent one-shot decision; its identity, charge, and effect must be supplied.
+This first protocol does not cover charge weapons, dual characters, or every
+item interaction. Unsupported mechanics are recorded and require added rules
+and demonstrations before deploying a policy for them. Never use future draws,
+undiscovered map contents, or generator seeds as policy inputs.
+
+Current state:
+{"player":{"vx":3.6288695335388,"vy":0.36988654732704,"health":{"black_mask":0,"rotten":0,"red":3,"soul":0,"bone":0,"max_red":6},"stats":{"move_speed":1.0,"tear_flags":{"low_hex":"0000000000000000","encoding":"bitset128","high_hex":"0000000000000000"},"tear_height":-23.75,"max_fire_delay":10.0,"damage":3.5,"shot_speed":1.0},"can_fly":false},"enemies":[{"type":18,"variant":0,"dx":77.1,"dy":7.9,"vx":-1.9,"vy":6.59,"hp":1.5,"state":3,"animation":"Fly","vulnerable":true},{"type":18,"variant":0,"dx":110.9,"dy":0.5,"vx":-1.66,"vy":4.48,"hp":5.0,"state":3,"animation":"Fly","vulnerable":true},{"type":18,"variant":0,"dx":111.0,"dy":50.0,"vx":1.52,"vy":8.91,"hp":5.0,"state":3,"animation":"Fly","vulnerable":true},{"type":18,"variant":0,"dx":126.4,"dy":-35.8,"vx":-4.73,"vy":4.39,"hp":5.0,"state":3,"animation":"Fly","vulnerable":true}],"projectile_count":0,"move_estimates":[["stay",49.2,89.3,89.4],["up",50.2,101.3,101.4],["down",42.7,77.3,77.4],["left",50.5,89.3,89.6],["right",35.7,89.3,90.4],["up_left",50.5,97.8,97.9],["up_right",45.4,97.8,98.4],["down_left",50.5,80.8,80.9],["down_right",30.4,80.8,81.6]],"active_item":{"ready":true,"charge":3,"battery":0,"charge_type":0,"name":"Book of Shadows","name_key":"#BOOK_OF_SHADOWS_NAME","description_key":"#BOOK_OF_SHADOWS_DESCRIPTION","id":58,"description":"Temporary invincibility","max_charges":3,"effect":"Book of Shadows: grants temporary invulnerability; timing matters.","curated_effect":true},"previous_action":24,"unmodelled_hazards":21}
+Choose combat controls.

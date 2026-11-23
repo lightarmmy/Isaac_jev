@@ -11,14 +11,15 @@ from .protocol import MAX_MESSAGE_BYTES, PROTOCOL_VERSION, MODES, decode, encode
 from .recording import SessionRecorder
 
 class BridgeServer:
-    def __init__(self, host="127.0.0.1", port=9527, record_root: Path | None = None, status_path: Path | None = None):
+    def __init__(self, host="127.0.0.1", port=9527, record_root: Path | None = None, status_path: Path | None = None, recording_enabled=True):
         if host not in {"127.0.0.1", "localhost"}:
             raise ValueError("this bridge binds to loopback only")
         self.host, self.port = host, port
         self.record_root = record_root
         self.status_path = status_path
-        self.recorder = SessionRecorder(record_root) if record_root else None
+        self.recorder = SessionRecorder(record_root) if record_root and recording_enabled else None
         self.latest = None
+        self._recent_frames = deque(maxlen=19)
         self.last_received = None
         self.mod_writer = None
         self.hello = None
@@ -66,6 +67,7 @@ class BridgeServer:
                 self.mod_writer.close()
             self.mod_writer, self.hello, is_mod = writer, first, True
             self._last_key = None
+            self._recent_frames.clear()
             if self.recorder:
                 self.recorder.append(first)
             writer.write(encode({"protocol_version": PROTOCOL_VERSION, "type": "hello_ack", "mode": "manual"}))
@@ -82,6 +84,12 @@ class BridgeServer:
                                 raise ValueError("duplicate or out-of-order frame")
                             self.frame_gaps += max(0, key[1] - self._last_key[1] - 1)
                         self._last_key = key
+                        if (self.latest and (msg["run_id"] != self.latest["run_id"]
+                                or msg["room"]["id"] != self.latest["room"]["id"]
+                                or msg["mode"] != self.latest["mode"]
+                                or msg["game_frame"] != self.latest["game_frame"] + 1)):
+                            self._recent_frames.clear()
+                        self._recent_frames.append(msg)
                         self.latest = msg
                         self.last_received = time.monotonic()
                         self._frame_times.append(self.last_received)
@@ -139,7 +147,11 @@ class BridgeServer:
         if operation == "get_status":
             return {"ok": True, "status": self.status()}
         if operation == "get_frame":
-            return {"ok": self.latest is not None, "frame": self.latest, "status": self.status()}
+            result = {"ok": self.latest is not None, "frame": self.latest, "status": self.status()}
+            if payload.get("include_history") and self.latest:
+                from .features import history_summary
+                result["policy_history"] = history_summary(self.latest, list(self._recent_frames)[:-1])
+            return result
         if operation not in {"set_mode", "action", "ping"}:
             return {"ok": False, "error": "unknown control command"}
         if not self.mod_writer or self.mod_writer.is_closing():

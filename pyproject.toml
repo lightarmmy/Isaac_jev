@@ -6,11 +6,11 @@ build-backend = "setuptools.build_meta"
 name = "isaac-jev"
 version = "0.1.0"
 description = "Non-visual Isaac telemetry, demonstration collection, and frozen-Qwen combat policies"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-train = ["torch>=2.6,<3", "transformers>=5.3,<6", "safetensors>=0.5", "numpy>=1.26"]
+train = ["torch>=2.6,<3", "transformers>=5.3,<5.4", "safetensors>=0.5", "numpy>=1.26"]
 
 [project.scripts]
 isaac-jev = "isaac_jev.cli:main"

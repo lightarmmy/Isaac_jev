@@ -1,6 +1,6 @@
 # 原始数据与战斗模型输入
 
-协议版本 1；动作版本 `move9-shoot5-active-edge-v2`；特征版本 `combat-numeric-and-text-v2`。
+协议版本 1；动作版本 `move9-shoot5-active-edge-v2`；当前特征版本 `combat-projectiles-history-conditioned-v3`。本文件以下原始采集说明仍适用；当前策略、结果条件及三个输出分支的详细契约以 [CONDITIONED_POLICY.md](CONDITIONED_POLICY.md) 为准，后文 v2 策略/训练描述作为旧版记录。
 
 ## 原始采集
 

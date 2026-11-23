@@ -11,7 +11,7 @@ from isaac_jev.features import policy_observation
 from isaac_jev.mock import sample_frame
 from isaac_jev.protocol import encode,decode,validate_frame
 from isaac_jev.recording import SessionRecorder,iter_messages
-from isaac_jev.training import prepare_dataset,split_for_run
+from isaac_jev.training import prepare_dataset,split_for_run,active_head_eligible,imitation_baselines
 
 class CoreTests(unittest.TestCase):
     def test_movement_shooting_and_active_are_concurrent(self):
@@ -88,8 +88,38 @@ class CoreTests(unittest.TestCase):
             self.assertTrue(row["active_label"])
             self.assertEqual(values["active_charge"],4/12)
             self.assertEqual(values["active_ready"],1)
-            self.assertEqual(values["previous_action"],15/44)
+            self.assertEqual(values["previous_move_3"],1)
+            self.assertEqual(values["previous_shoot_0"],1)
             self.assertEqual(row["action_label"],20)
+
+    def test_explicit_validation_selection_keeps_all_frames_of_a_run_together(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);rec=SessionRecorder(root/"records")
+            runids=[f"run-{i}" for i in range(1000) if split_for_run(f"run-{i}")=="train"][:2]
+            for run in runids:
+                for n in range(4):
+                    frame=sample_frame(n);frame["run_id"]=run;rec.append(frame)
+            rec.close()
+            prepare_dataset(root/"records",root/"dataset",split_overrides={runids[1]:"validation"})
+            rows=[json.loads(l) for l in (root/"dataset/samples.jsonl").read_text().splitlines()]
+            self.assertEqual({r["split"] for r in rows if r["run_id"]==runids[0]},{"train"})
+            self.assertEqual({r["split"] for r in rows if r["run_id"]==runids[1]},{"validation"})
+            with self.assertRaisesRegex(ValueError,"unrecorded"):
+                prepare_dataset(root/"records",root/"invalid",split_overrides={"missing-run":"validation"})
+
+    def test_one_active_example_does_not_enable_automatic_item_use(self):
+        rows=[{"run_id":"one","active_label":True}]+[{"run_id":"one","active_label":False}]*20
+        self.assertFalse(active_head_eligible(rows,list(range(len(rows)))))
+        rows += [{"run_id":"two","active_label":True}]*4
+        self.assertTrue(active_head_eligible(rows,list(range(len(rows)))))
+
+    def test_imitation_baseline_uses_preceding_controls_and_training_majority(self):
+        rows=[{"action_label":20,"numeric_names":["previous_action"],"numeric":[20/44]},
+              {"action_label":15,"numeric_names":["previous_action"],"numeric":[15/44]},
+              {"action_label":15,"numeric_names":["previous_action"],"numeric":[20/44]}]
+        metrics=imitation_baselines(rows,[0],[1,2])
+        self.assertEqual(metrics["repeat_previous_action_accuracy"],0.5)
+        self.assertEqual(metrics["training_majority_action_accuracy"],0)
 
 class NetworkTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -97,6 +127,21 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.hub.close()
+
+    async def test_live_history_matches_dataset_history_and_resets_on_room_change(self):
+        reader,writer=await asyncio.open_connection("127.0.0.1",self.hub.port)
+        writer.write(encode({"protocol_version":1,"type":"hello","client":"isaac_mod"}));await writer.drain();await reader.readline()
+        frames=[sample_frame(i) for i in range(21)]
+        for frame in frames:writer.write(encode(frame))
+        await writer.drain();await asyncio.sleep(0.05)
+        reply=await request_control({"command":"get_frame","include_history":True},port=self.hub.port)
+        self.assertEqual(policy_observation(frames[-1],frames[:-1]),
+                         policy_observation(reply["frame"],history_facts=reply["policy_history"]))
+        changed=sample_frame(21);changed["room"]["id"]="next-room"
+        writer.write(encode(changed));await writer.drain();await asyncio.sleep(0.03)
+        reply=await request_control({"command":"get_frame","include_history":True},port=self.hub.port)
+        self.assertTrue(all(not h["available"] for h in reply["policy_history"]))
+        writer.close();await writer.wait_closed()
 
     async def test_fragmented_packets_and_bad_frames_do_not_break_connection(self):
         reader,writer=await asyncio.open_connection("127.0.0.1",self.hub.port)
@@ -136,5 +181,17 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(stopped["ok"]);self.assertIsNone(stopped["completed_error"])
             self.assertEqual([m["game_frame"] for m in iter_messages(Path(tmp))],[0,1])
             self.assertEqual([m["game_frame"] for m in iter_messages(Path(tmp),include_diagnostics=False)],[1])
+
+    async def test_start_without_recording_can_enable_capture_later(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hub=BridgeServer(port=0,record_root=Path(tmp),recording_enabled=False)
+            await hub.start()
+            try:
+                self.assertIsNone(hub.recorder)
+                self.assertEqual(list(Path(tmp).iterdir()),[])
+                reply=await request_control({"command":"rotate_recording","purpose":"demonstration"},port=hub.port)
+                self.assertTrue(reply["ok"])
+                self.assertIsNotNone(hub.recorder)
+            finally:await hub.close()
 
 if __name__=="__main__":unittest.main()

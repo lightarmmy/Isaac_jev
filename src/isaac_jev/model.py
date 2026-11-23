@@ -6,14 +6,15 @@ from torch import nn
 class CombatHead(nn.Module):
     def __init__(self, embedding_size, numeric_size, hidden_size=256):
         super().__init__()
-        self.shared=nn.Sequential(nn.LayerNorm(embedding_size+numeric_size),
-                                  nn.Linear(embedding_size+numeric_size,hidden_size),nn.GELU())
-        self.action=nn.Linear(hidden_size,45)
+        self.text_norm=nn.LayerNorm(embedding_size)
+        self.shared=nn.Sequential(nn.Linear(embedding_size+numeric_size,hidden_size),nn.GELU())
+        self.move=nn.Linear(hidden_size,9)
+        self.shoot=nn.Linear(hidden_size,5)
         self.active=nn.Linear(hidden_size,1)
 
     def forward(self,embedding,numeric):
-        hidden=self.shared(torch.cat((embedding.float(),numeric.float()),dim=-1))
-        return self.action(hidden),self.active(hidden).squeeze(-1)
+        hidden=self.shared(torch.cat((self.text_norm(embedding.float()),numeric.float()),dim=-1))
+        return self.move(hidden),self.shoot(hidden),self.active(hidden).squeeze(-1)
 
 class FrozenQwen:
     def __init__(self,model_id,revision="main",device="cuda",dtype="bfloat16",max_length=1024):

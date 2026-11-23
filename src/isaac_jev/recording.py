@@ -68,7 +68,7 @@ class SessionRecorder:
                               "written": self.written, "dropped": self.dropped, "error": self.error})
         self._save_metadata()
 
-def iter_messages(path: Path, include_diagnostics=True):
+def iter_messages(path: Path, include_diagnostics=True, include_session=False):
     files = sorted(path.glob("*/frames.jsonl.gz")) if path.is_dir() and not (path / "frames.jsonl.gz").exists() else [path / "frames.jsonl.gz" if path.is_dir() else path]
     for file in files:
         metadata_path=file.parent/"session.json"
@@ -80,6 +80,8 @@ def iter_messages(path: Path, include_diagnostics=True):
             for number, line in enumerate(source, 1):
                 if line.strip():
                     try:
-                        yield json.loads(line)
+                        message = json.loads(line)
+                        if include_session:message["_recording_session"] = str(file.resolve())
+                        yield message
                     except ValueError as exc:
                         raise ValueError(f"{file}:{number}: {exc}") from exc

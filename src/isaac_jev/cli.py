@@ -21,7 +21,7 @@ def doctor(game: Path):
     print("Bridge port: localhost:9527; F8 always returns manual control.")
 
 async def serve(args):
-    hub=BridgeServer(port=args.port,record_root=Path(args.record) if args.record else None,status_path=Path(args.status_file))
+    hub=BridgeServer(port=args.port,record_root=Path(args.record) if args.record else None,status_path=Path(args.status_file),recording_enabled=not args.no_record)
     if hub.recorder:
         hub.recorder.metadata["purpose"]=args.record_purpose
         hub.recorder._save_metadata()
@@ -90,6 +90,7 @@ def main():
     p=sub.add_parser("doctor");p.add_argument("--game",type=Path,default=Path(".local/isaac-lab/game"))
     p=sub.add_parser("bridge");p.add_argument("--port",type=int,default=9527);p.add_argument("--record",default="recordings");p.add_argument("--status-file",default=".local/bridge_status.json")
     p.add_argument("--record-purpose",choices=["demonstration","diagnostic"],default="demonstration")
+    p.add_argument("--no-record",action="store_true",help="Start without recording; retain record rotate capability")
     p=sub.add_parser("record");p.add_argument("operation",choices=["rotate","stop"]);p.add_argument("--purpose",choices=["demonstration","diagnostic"],default="demonstration");p.add_argument("--completed-purpose",choices=["demonstration","diagnostic"]);p.add_argument("--port",type=int,default=9527)
     for name in ["status","frame","probe"]:
         p=sub.add_parser(name);p.add_argument("--port",type=int,default=9527)
@@ -98,8 +99,13 @@ def main():
     p=sub.add_parser("inspect");p.add_argument("path")
     p=sub.add_parser("mock-client");p.add_argument("--frames",type=int,default=90);p.add_argument("--port",type=int,default=9527)
     p=sub.add_parser("prepare-dataset");p.add_argument("recordings");p.add_argument("--output",required=True);p.add_argument("--stride",type=int,default=1)
-    p=sub.add_parser("train");p.add_argument("dataset");p.add_argument("--output",required=True);p.add_argument("--model",default="Qwen/Qwen3.5-2B");p.add_argument("--epochs",type=int,default=10);p.add_argument("--max-length",type=int,default=1024);p.add_argument("--device",default="cuda");p.add_argument("--revision",default="main")
+    p.add_argument("--validation-run",action="append",default=[],help="Reserve this complete run for validation; repeat for multiple runs")
+    p.add_argument("--test-run",action="append",default=[],help="Reserve this complete run for final held-out testing; repeat for multiple runs")
+    p.add_argument("--outcome-window-frames",type=int,default=30,help="Future outcome window in 30 Hz logic frames, 1..150; labels only, never observations")
+    p=sub.add_parser("train");p.add_argument("dataset");p.add_argument("--output",required=True);p.add_argument("--model",default="Qwen/Qwen3.5-2B");p.add_argument("--epochs",type=int,default=10);p.add_argument("--max-length",type=int,default=3072);p.add_argument("--device",default="cuda");p.add_argument("--revision",default="main")
     p=sub.add_parser("infer");p.add_argument("checkpoint");p.add_argument("--port",type=int,default=9527);p.add_argument("--mode",choices=["shadow","ai"],default="shadow");p.add_argument("--device",default="cuda")
+    p.add_argument("--max-seconds",type=float,help="Stop after this many seconds of a running game; restore manual mode")
+    p.add_argument("--startup-timeout",type=float,default=600,help="Seconds to wait for an unpaused game before starting")
     args=parser.parse_args()
     if args.cmd=="doctor":doctor(args.game)
     elif args.cmd=="bridge":asyncio.run(serve(args))
@@ -113,7 +119,9 @@ def main():
     elif args.cmd=="mock-client":asyncio.run(mock_client(args))
     elif args.cmd=="prepare-dataset":
         from .training import prepare_dataset
-        prepare_dataset(Path(args.recordings),Path(args.output),args.stride)
+        if set(args.validation_run)&set(args.test_run):parser.error("A run cannot be both validation and test")
+        overrides={**{run:"validation" for run in args.validation_run},**{run:"test" for run in args.test_run}}
+        prepare_dataset(Path(args.recordings),Path(args.output),args.stride,split_overrides=overrides,outcome_window_frames=args.outcome_window_frames)
     elif args.cmd=="train":
         from .training import train
         train(args)
