@@ -4,17 +4,21 @@ import torch
 from torch import nn
 
 class CombatHead(nn.Module):
-    def __init__(self, embedding_size, numeric_size, hidden_size=256):
+    def __init__(self, embedding_size, numeric_size, hidden_size=256, active_enabled=True):
         super().__init__()
-        self.text_norm=nn.LayerNorm(embedding_size)
-        self.shared=nn.Sequential(nn.Linear(embedding_size+numeric_size,hidden_size),nn.GELU())
+        branch_size=hidden_size//2
+        self.text=nn.Sequential(nn.LayerNorm(embedding_size),nn.Linear(embedding_size,branch_size),
+                                nn.GELU(),nn.LayerNorm(branch_size))
+        self.numeric=nn.Sequential(nn.Linear(numeric_size,branch_size),nn.GELU(),nn.LayerNorm(branch_size))
+        self.shared=nn.Sequential(nn.Linear(branch_size*2,hidden_size),nn.GELU(),nn.Dropout(0.1))
         self.move=nn.Linear(hidden_size,9)
         self.shoot=nn.Linear(hidden_size,5)
-        self.active=nn.Linear(hidden_size,1)
+        self.active=nn.Linear(hidden_size,1) if active_enabled else None
 
     def forward(self,embedding,numeric):
-        hidden=self.shared(torch.cat((self.text_norm(embedding.float()),numeric.float()),dim=-1))
-        return self.move(hidden),self.shoot(hidden),self.active(hidden).squeeze(-1)
+        hidden=self.shared(torch.cat((self.text(embedding.float()),self.numeric(numeric.float())),dim=-1))
+        active=self.active(hidden).squeeze(-1) if self.active is not None else hidden.new_full((hidden.shape[0],),float("-inf"))
+        return self.move(hidden),self.shoot(hidden),active
 
 class FrozenQwen:
     def __init__(self,model_id,revision="main",device="cuda",dtype="bfloat16",max_length=1024):

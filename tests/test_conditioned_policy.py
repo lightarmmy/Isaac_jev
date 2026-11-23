@@ -126,26 +126,31 @@ class TrainingPipelineTests(unittest.TestCase):
             for run in ("train-run", "val-run"):
                 for i in range(75):
                     f = sample_frame(i); f["run_id"] = run
+                    f["human_input"]["active_trigger"]=False
                     if i >= 50:f["player"]["health"]["red"] = 5
                     if i == 50:rec.append({"type": "event", "event": "damage", "entity_type": 1,
                         "run_id": run, "game_frame": i, "amount": 1, "flags": 0})
                     rec.append(f)
             rec.close()
-            prepare_dataset(rec.path, root/"dataset", split_overrides={"train-run": "train", "val-run": "validation"})
+            prepare_dataset(rec.path, root/"dataset", split_overrides={"train-run": "train", "val-run": "validation"},exclude_active_items=True)
             args = SimpleNamespace(dataset=str(root/"dataset"), output=str(root/"artifact"), model="fixture",
                 revision="fixture-revision", device="cpu", max_length=3072, epochs=1)
             with patch("isaac_jev.model.FrozenQwen", FakeFrozenQwen):train(args)
             cfg = json.loads((root/"artifact/policy_config.json").read_text())
             self.assertEqual(cfg["deployment_condition"], "positive")
+            self.assertFalse(cfg["active_head_present"])
+            self.assertFalse(cfg["active_context"])
             self.assertEqual(cfg["head_architecture"], contract()["head_architecture"])
             norm = json.loads((root/"artifact/normalization.json").read_text())
             self.assertTrue(all(v == 1 for v in norm["std"]))
-            head = CombatHead(16, cfg["numeric_size"])
+            head = CombatHead(16, cfg["numeric_size"],active_enabled=cfg["active_head_present"])
             head.load_state_dict(load_file(str(root/"artifact/head.safetensors")))
             with torch.no_grad():
                 move, shoot, active = head(torch.zeros(2, 16), torch.zeros(2, cfg["numeric_size"]))
             self.assertEqual(tuple(move.shape), (2, 9)); self.assertEqual(tuple(shoot.shape), (2, 5))
             self.assertEqual(tuple(active.shape), (2,))
+            self.assertTrue(torch.isneginf(active).all())
+            self.assertFalse(any(name.startswith("active.") for name in head.state_dict()))
             metrics = json.loads((root/"artifact/evaluation.json").read_text())
             self.assertGreater(metrics["validation"]["fixed_positive_on_observed_positive"]["samples"], 0)
             self.assertEqual(set(metrics["validation"]["by_observed_outcome"]), {"positive", "negative", "unknown"})

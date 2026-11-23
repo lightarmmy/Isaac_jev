@@ -1,0 +1,29 @@
+Isaac combat policy, basic tears and ordinary single-player movement.
+Coordinates are game world units; x increases rightward and y downward.
+Movement and shooting can happen at the same time. Movement has eight directions
+and stay; basic shooting has four cardinal directions and none. A command only
+lasts for a few simulation updates. Avoid harmful enemies, projectiles, fire,
+spikes, pits when unable to fly, and blocked tiles. Enemy velocity and the recent
+state matter: the closest object need not be the most dangerous one. Trajectory
+risk estimates assume short constant-velocity motion and are approximate.
+Maintain useful firing alignment while keeping an escape route. Invulnerable
+or friendly entities are not ordinary attack targets. Active item use is an
+independent one-shot decision; its identity, charge, and effect must be supplied.
+This first protocol does not cover charge weapons, dual characters, or every
+item interaction. Unsupported mechanics are recorded and require added rules
+and demonstrations before deploying a policy for them. Never use future draws,
+undiscovered map contents, or generator seeds as policy inputs.
+Projectiles list the nearest eight hostile bullets relative to the player;
+other bullets still contribute to movement risk. Positions, velocities, height,
+falling speed and flags describe observed motion, not guaranteed future paths.
+History lists past snapshots only; missing entries mean unavailable observations.
+The outcome condition is a requested behavior, not knowledge of the future:
+positive means observed avoidance of damage under threat, negative means
+observed damage-associated behavior, unknown means unassessed behavior.
+When positive is requested, favor avoiding damage while maintaining useful fire.
+
+Active items are disabled in this policy; choose only movement and shooting.
+Current state:
+{"player":{"vx":-7.8294086456299,"vy":-0.0001667418400757,"health":{"black_mask":0,"rotten":0,"red":8,"soul":3,"bone":0,"max_red":10},"stats":{"move_speed":2.0,"tear_flags":{"low_hex":"0000000000000000","encoding":"bitset128","high_hex":"0000000000000000"},"tear_height":-23.75,"max_fire_delay":5.0,"damage":4.5451512336731,"shot_speed":0.8400000333786},"can_fly":false},"enemies":[{"type":27,"variant":0,"dx":87.6,"dy":-145.6,"vx":-0.25,"vy":-0.12,"hp":0.36454677581787,"state":8,"animation":"Shoot","vulnerable":true},{"type":27,"variant":0,"dx":24.1,"dy":-210.7,"vx":0.0,"vy":0.0,"hp":14.0,"state":8,"animation":"Shoot","vulnerable":true},{"type":27,"variant":0,"dx":264.1,"dy":-130.7,"vx":0.0,"vy":0.0,"hp":14.0,"state":8,"animation":"Shoot","vulnerable":true},{"type":27,"variant":0,"dx":344.1,"dy":-50.7,"vx":0.0,"vy":0.0,"hp":14.0,"state":8,"animation":"Shoot","vulnerable":true}],"projectile_count":12,"projectiles":[{"type":9,"variant":0,"dx":43.9,"dy":-66.5,"vx":1.1,"vy":8.01,"size":5.0,"height":-38.070320129395,"falling_speed":0.67447954416275,"falling_accel":0.050000000745058,"flags":0},{"type":9,"variant":0,"dx":89.5,"dy":-62.7,"vx":3.63,"vy":8.22,"size":5.0,"height":-38.070320129395,"falling_speed":0.67447954416275,"falling_accel":0.050000000745058,"flags":0},{"type":9,"variant":0,"dx":116.5,"dy":-28.2,"vx":-7.38,"vy":5.13,"size":5.0,"height":-36.481960296631,"falling_speed":0.83132845163345,"falling_accel":0.050000000745058,"flags":0},{"type":9,"variant":0,"dx":79.6,"dy":-102.0,"vx":-2.42,"vy":7.45,"size":5.0,"height":-37.050437927246,"falling_speed":-1.5680058002472,"falling_accel":0.050000000745058,"flags":16777216},{"type":9,"variant":0,"dx":92.6,"dy":-96.8,"vx":-0.07,"vy":8.41,"size":5.0,"height":-37.050437927246,"falling_speed":-1.5680058002472,"falling_accel":0.050000000745058,"flags":16777216},{"type":9,"variant":0,"dx":110.9,"dy":-78.7,"vx":-7.66,"vy":2.6,"size":5.0,"height":-36.481960296631,"falling_speed":0.83132845163345,"falling_accel":0.050000000745058,"flags":0},{"type":9,"variant":0,"dx":104.0,"dy":-104.8,"vx":2.01,"vy":6.95,"size":5.0,"height":-37.050437927246,"falling_speed":-1.5680058002472,"falling_accel":0.050000000745058,"flags":16777216},{"type":9,"variant":0,"dx":117.4,"dy":-98.9,"vx":5.18,"vy":6.21,"size":5.0,"height":-38.070320129395,"falling_speed":0.67447954416275,"falling_accel":0.050000000745058,"flags":0}],"projectiles_omitted":4,"move_estimates":[["stay",39.8,9.3,13.3],["up",34.4,33.3,35.6],["down",65.7,-14.7,-3.3],["left",64.9,9.3,10.4],["right",4.6,9.3,9.3],["up_left",54.8,26.3,26.3],["up_right",6.7,26.3,26.8],["down_left",65.7,-7.7,-7.6],["down_right",35.5,-7.7,-5.8]],"previous_controls":{"move":"left","shoot":"up"},"history":[{"age_frames":3,"available":true,"player_dx":43.6,"player_dy":0.0,"vx":-6.81,"vy":-0.0,"health":{"black_mask":0,"rotten":0,"red":8,"soul":3,"bone":0,"max_red":10},"move":"left","shoot":"up","enemy_count":4,"projectile_count":12,"nearest_enemy":[{"type":27,"dx":44.5,"dy":-145.4}],"nearest_projectiles":[{"dx":-3.0,"dy":-90.5,"vx":1.1,"vy":8.01},{"dx":35.0,"dy":-87.4,"vx":3.63,"vy":8.22}]},{"age_frames":9,"available":true,"player_dx":103.0,"player_dy":0.1,"vx":-2.89,"vy":-0.01,"health":{"black_mask":0,"rotten":0,"red":8,"soul":3,"bone":0,"max_red":10},"move":"left","shoot":"up","enemy_count":4,"projectile_count":12,"nearest_enemy":[{"type":27,"dx":-12.7,"dy":-144.3}],"nearest_projectiles":[{"dx":79.9,"dy":-74.4,"vx":-7.38,"vy":5.13},{"dx":104.9,"dy":-61.8,"vx":-5.11,"vy":6.27}]},{"age_frames":18,"available":true,"player_dx":109.2,"player_dy":-17.0,"vx":-0.01,"vy":0.82,"health":{"black_mask":0,"rotten":0,"red":8,"soul":3,"bone":0,"max_red":10},"move":"down","shoot":"up","enemy_count":4,"projectile_count":9,"nearest_enemy":[{"type":27,"dx":-12.6,"dy":-123.1}],"nearest_projectiles":[{"dx":140.1,"dy":-103.4,"vx":-7.38,"vy":5.13},{"dx":144.7,"dy":-101.1,"vx":-5.11,"vy":6.27}]}],"unmodelled_hazards":9}
+Desired outcome condition: positive.
+Choose combat controls.

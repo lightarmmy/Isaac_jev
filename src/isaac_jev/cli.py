@@ -100,7 +100,11 @@ def main():
     p.add_argument("--validation-run",action="append",default=[],help="Reserve this complete run for validation; repeat for multiple runs")
     p.add_argument("--test-run",action="append",default=[],help="Reserve this complete run for final held-out testing; repeat for multiple runs")
     p.add_argument("--outcome-window-frames",type=int,default=30,help="Future outcome window in 30 Hz logic frames, 1..150; labels only, never observations")
+    p.add_argument("--exclude-active-items",action="store_true",help="Exclude rooms with active item use/input and disable active policy context/output")
     p=sub.add_parser("train");p.add_argument("dataset");p.add_argument("--output",required=True);p.add_argument("--model",default="Qwen/Qwen3.5-2B");p.add_argument("--epochs",type=int,default=10);p.add_argument("--max-length",type=int,default=3072);p.add_argument("--device",default="cuda");p.add_argument("--revision",default="main")
+    p.add_argument("--feature-batch-size",type=int,default=16,help="Batch size for frozen feature extraction")
+    p.add_argument("--patience",type=int,default=8,help="Stop after this many epochs without a meaningful validation NLL improvement")
+    p.add_argument("--min-delta",type=float,default=0.005,help="Minimum NLL improvement to reset early stopping")
     p=sub.add_parser("infer");p.add_argument("checkpoint");p.add_argument("--port",type=int,default=9527);p.add_argument("--mode",choices=["shadow","ai"],default="shadow");p.add_argument("--device",default="cuda")
     p.add_argument("--max-seconds",type=float,help="Stop after this many seconds of a running game; restore manual mode")
     p.add_argument("--startup-timeout",type=float,default=600,help="Seconds to wait for an unpaused game before starting")
@@ -122,7 +126,7 @@ def main():
         from .training import prepare_dataset
         if set(args.validation_run)&set(args.test_run):parser.error("A run cannot be both validation and test")
         overrides={**{run:"validation" for run in args.validation_run},**{run:"test" for run in args.test_run}}
-        prepare_dataset(Path(args.recordings),Path(args.output),args.stride,split_overrides=overrides,outcome_window_frames=args.outcome_window_frames)
+        prepare_dataset(Path(args.recordings),Path(args.output),args.stride,split_overrides=overrides,outcome_window_frames=args.outcome_window_frames,exclude_active_items=args.exclude_active_items)
     elif args.cmd=="train":
         from .training import train
         train(args)

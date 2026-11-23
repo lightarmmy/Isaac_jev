@@ -13,10 +13,13 @@ parser.add_argument('--output',default='.local/transfer/isaac-jev-training.zip')
 args=parser.parse_args()
 dataset_path=ROOT/args.dataset
 destination=ROOT/args.output
+dataset=json.loads((dataset_path/'dataset.json').read_text(encoding='utf-8'))
+selected_sessions=set(dataset['source_sessions']) if 'source_sessions' in dataset else None
 destination.parent.mkdir(parents=True,exist_ok=True)
 tracked=subprocess.check_output(['git','ls-files','--cached','--others','--exclude-standard'],cwd=ROOT,text=True).splitlines()
 files={Path(name) for name in tracked if (ROOT/name).is_file()}
 for metadata in (ROOT/'recordings').glob('*/session.json'):
+    if selected_sessions is not None and metadata.parent.name not in selected_sessions:continue
     session=json.loads(metadata.read_text(encoding='utf-8'))
     if session.get('purpose')!='demonstration':continue
     if not session.get('closed_at_unix') or session.get('error') or session.get('dropped'):
@@ -25,7 +28,6 @@ for metadata in (ROOT/'recordings').glob('*/session.json'):
     files.add((metadata.parent/'frames.jsonl.gz').relative_to(ROOT))
 for path in dataset_path.iterdir():
     if path.is_file():files.add(path.relative_to(ROOT))
-dataset=json.loads((dataset_path/'dataset.json').read_text(encoding='utf-8'))
 if not dataset['counts']['train'] or not dataset['counts']['validation']:
     raise ValueError('An independent training and validation split is required')
 manifest={'format':'isaac-jev-training-bundle-v1','dataset':dataset,'files':{}}

@@ -18,9 +18,11 @@ def main():
     parser.add_argument("--dataset",default="datasets/combat-v002")
     parser.add_argument("--repeats",type=int,default=2)
     parser.add_argument("--output",default=".local/local-policy-benchmark.json")
+    parser.add_argument("--hf-cache",help="Use this offline model cache (absolute path or relative to project)")
     args=parser.parse_args()
     if args.repeats<1:parser.error("repeats must be positive")
-    os.environ["HF_HUB_CACHE"]=str(ROOT/".local/offline-hf")
+    cache=ROOT/args.hf_cache if args.hf_cache else (ROOT/".local/offline-hf" if (ROOT/".local/offline-hf").exists() else ROOT/".cache/huggingface/hub")
+    os.environ["HF_HUB_CACHE"]=str(cache.resolve())
     os.environ["HF_HUB_OFFLINE"]="1"
     os.environ["TRANSFORMERS_OFFLINE"]="1"
     import torch
@@ -37,7 +39,7 @@ def main():
     if any(cfg.get(k)!=v for k,v in contract().items()):raise ValueError("Checkpoint contract mismatch")
     rows=[json.loads(line) for line in (ROOT/args.dataset/"samples.jsonl").read_text(encoding="utf-8").splitlines()]
     encoder=FrozenQwen(cfg["model"],cfg["revision"],"cuda",cfg["dtype"],cfg["max_length"])
-    head=CombatHead(cfg["embedding_size"],cfg["numeric_size"],cfg["head_hidden_size"]).cuda().eval()
+    head=CombatHead(cfg["embedding_size"],cfg["numeric_size"],cfg["head_hidden_size"],active_enabled=cfg.get("active_head_present",True)).cuda().eval()
     head.load_state_dict(load_file(str(checkpoint/"head.safetensors")))
     ordered=sorted(rows,key=lambda r:len(encoder.tokenizer.encode(r["deployment_prompt"])))
     norm=json.loads((checkpoint/"normalization.json").read_text())

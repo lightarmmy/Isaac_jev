@@ -75,7 +75,7 @@ def history_summary(frame, history):
     return summaries
 
 
-def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, history_facts=None) -> tuple[str, list[float], list[str]]:
+def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, history_facts=None, include_active=True) -> tuple[str, list[float], list[str]]:
     if condition not in CONDITIONS:
         raise ValueError("Unknown outcome condition")
     p, room = frame["player"], frame["room"]
@@ -84,6 +84,7 @@ def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, 
     left, top = _xy(room.get("top_left"))
     right, bottom = _xy(room.get("bottom_right"))
     health, stats, active = p.get("health", {}), p.get("stats", {}), p.get("active", {})
+    if not include_active:active={}
     entities = frame.get("entities", [])
     enemies = [e for e in entities if e.get("kind") == "enemy" and not e.get("friendly") and not e.get("dead")]
     bullets = [e for e in entities if e.get("kind") == "projectile" and not e.get("friendly")]
@@ -156,6 +157,7 @@ def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, 
                 "size": e.get("size"), "height": e.get("height"), "falling_speed": e.get("falling_speed"),
                 "falling_accel": e.get("falling_accel"), "flags": e.get("projectile_flags")})
     previous_action, previous_active = controls(frame)
+    if not include_active:previous_active=False
     for i in range(9):add(f"previous_move_{i}", int(previous_action//5 == i))
     for i in range(5):add(f"previous_shoot_{i}", int(previous_action%5 == i))
     add("previous_active",previous_active)
@@ -169,7 +171,12 @@ def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, 
                "shoot":SHOT_NAMES[previous_action%5],"use_active":previous_active},
            "history":history_summary(frame, history) if history_facts is None else history_facts,
            "unmodelled_hazards":sum(e.get("kind") in {"laser","bomb","effect"} for e in entities)}
-    prompt=RULES+"\nCurrent state:\n"+json.dumps(facts,ensure_ascii=False,separators=(",",":"),allow_nan=False)
+    if not include_active:
+        facts.pop("active_item")
+        facts["previous_controls"].pop("use_active")
+        facts["history"]=[{k:v for k,v in h.items() if k!="use_active"} for h in facts["history"]]
+    rules=RULES if include_active else RULES+"\nActive items are disabled in this policy; choose only movement and shooting."
+    prompt=rules+"\nCurrent state:\n"+json.dumps(facts,ensure_ascii=False,separators=(",",":"),allow_nan=False)
     prompt += "\nDesired outcome condition: " + condition + ".\nChoose combat controls."
     return prompt,values,names
 
@@ -177,6 +184,6 @@ def contract():
     return {"feature_version":FEATURE_VERSION,"action_version":ACTION_VERSION,"rules_sha256":RULES_SHA256,
             "raw_capture_phase":"pre_update","movement_risk_horizon_frames":6,"candidate_endpoint_frames":3,
             "observation_to_action_frame_lag":1,"active_labels":"human_edge_and_confirmed_primary_item_use",
-            "head_architecture":"factorized-move9-shoot5-active1-v1", "projectile_limit":PROJECTILE_LIMIT,
+            "head_architecture":"two-tower-factorized-v2", "projectile_limit":PROJECTILE_LIMIT,
             "history_offsets_frames":list(HISTORY_OFFSETS), "outcome_version":"observed-damage-window-v1",
             "deployment_condition":DEPLOYMENT_CONDITION, "normalization":"fixed-physical-scales-v1"}
