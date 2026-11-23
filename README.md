@@ -4,7 +4,7 @@
 
 高层路线/道具决策计划交给 DeepSeek API；当前实现首先打通房间战斗数据与控制链路。
 
-当前安装状态：**实验副本已安装 REPENTOGON 1.1.3a，并通过官方 Launcher 的 DLL 与游戏版本验证**。原游戏有中文替换文件，保留原安装；实验副本导入官方 Steam depot，再应用官方补丁。用户已选择 Sandboxie 完整隔离，环境正在配置，尚未启动游戏或验证实机桥接，见 [接入指南](docs/CONNECT_ISAAC.md)。
+当前安装状态：**实验副本已安装 REPENTOGON 1.1.3a，并通过官方 Launcher 的 DLL 与游戏版本验证**。原游戏有中文替换文件，保留原安装；实验副本导入官方 Steam depot，再应用官方补丁。已配置 Sandboxie 独立沙箱，文件写入和本地 TCP 探针通过；Steam 处于沙箱内且已切换离线模式。首次实机启动正在验证，尚未收到游戏帧，见 [接入指南](docs/CONNECT_ISAAC.md)。
 
 ## 已实现
 
