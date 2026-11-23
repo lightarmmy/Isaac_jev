@@ -11,13 +11,16 @@ from .protocol import MAX_MESSAGE_BYTES, PROTOCOL_VERSION, MODES, decode, encode
 from .recording import SessionRecorder
 
 class BridgeServer:
-    def __init__(self, host="127.0.0.1", port=9527, record_root: Path | None = None, status_path: Path | None = None, recording_enabled=True):
+    def __init__(self, host="127.0.0.1", port=9527, record_root: Path | None = None, status_path: Path | None = None, recording_enabled=True, record_purpose="demonstration"):
         if host not in {"127.0.0.1", "localhost"}:
             raise ValueError("this bridge binds to loopback only")
         self.host, self.port = host, port
         self.record_root = record_root
         self.status_path = status_path
-        self.recorder = SessionRecorder(record_root) if record_root and recording_enabled else None
+        self.recording_enabled = bool(record_root and recording_enabled)
+        self.record_purpose = record_purpose
+        self.recorder = self._new_recorder() if self.recording_enabled else None
+        self._recording_run = None
         self.latest = None
         self._recent_frames = deque(maxlen=19)
         self.last_received = None
@@ -29,6 +32,22 @@ class BridgeServer:
         self._last_key = None
         self._acks = {}
         self.server = None
+
+    def _new_recorder(self):
+        return SessionRecorder(self.record_root,{"purpose":self.record_purpose,"automatic_boundaries":True})
+
+    async def _seal_recording(self, reason, reopen=False):
+        old=self.recorder
+        self.recorder=self._new_recorder() if reopen and self.recording_enabled else None
+        self._recording_run=None
+        if old:
+            old.metadata["boundary_reason"]=reason
+            await asyncio.to_thread(old.close)
+
+    def recording_message(self):
+        return {"protocol_version":PROTOCOL_VERSION,"type":"recording_status",
+                "recording":bool(self.recorder and not self.recorder.error),
+                "recording_error":bool(self.recorder and (self.recorder.error or self.recorder.dropped))}
 
     def status(self) -> dict:
         elapsed = self._frame_times[-1] - self._frame_times[0] if len(self._frame_times) > 1 else 0
@@ -42,6 +61,7 @@ class BridgeServer:
                 "mode": latest.get("mode"), "room_id": latest.get("room", {}).get("id"),
                 "enemies": sum(e.get("kind") == "enemy" for e in latest.get("entities", [])),
                 "recording": str(self.recorder.path.resolve()) if self.recorder else None,
+                "recording_enabled":self.recording_enabled,
                 "recording_written": self.recorder.written if self.recorder else 0,
                 "recording_dropped": self.recorder.dropped if self.recorder else 0,
                 "recording_error": self.recorder.error if self.recorder else None,
@@ -63,22 +83,30 @@ class BridgeServer:
                 return
             if first.get("type") != "hello" or first.get("client") != "isaac_mod":
                 raise ValueError("expected mod hello or control request")
-            if self.mod_writer and self.mod_writer is not writer:
+            replaced=bool(self.mod_writer and self.mod_writer is not writer)
+            if replaced:
                 self.mod_writer.close()
             self.mod_writer, self.hello, is_mod = writer, first, True
             self._last_key = None
             self._recent_frames.clear()
+            if replaced:await self._seal_recording("connection_replaced",reopen=True)
+            if self.recording_enabled and self.recorder is None:self.recorder=self._new_recorder()
             if self.recorder:
                 self.recorder.append(first)
-            writer.write(encode({"protocol_version": PROTOCOL_VERSION, "type": "hello_ack", "mode": "manual"}))
+            writer.write(encode({**self.recording_message(),"type":"hello_ack","mode":"manual"}))
             await writer.drain()
             print("Isaac mod connected; control remains MANUAL.", flush=True)
             while line := await reader.readline():
+                if self.mod_writer is not writer:break
                 try:
                     msg = decode(line)
                     if msg.get("type") == "frame":
                         validate_frame(msg)
                         key = (msg["run_id"], msg["game_frame"])
+                        if self.recorder:
+                            if self._recording_run is not None and self._recording_run!=key[0]:
+                                await self._seal_recording("run_changed",reopen=True)
+                            self._recording_run=key[0]
                         if self._last_key and key[0] == self._last_key[0]:
                             if key[1] <= self._last_key[1]:
                                 raise ValueError("duplicate or out-of-order frame")
@@ -99,6 +127,11 @@ class BridgeServer:
                         if future and not future.done():
                             future.set_result(msg)
                     elif msg.get("type") == "event":
+                        if msg.get("event")=="run_started":
+                            if self.recorder and self._recording_run is not None:
+                                await self._seal_recording("run_started",reopen=True)
+                            self._recording_run=msg.get("run_id")
+                            self._last_key=None;self._recent_frames.clear()
                         self.received_events += 1
                     else:
                         raise ValueError("unsupported message type")
@@ -113,9 +146,11 @@ class BridgeServer:
         finally:
             if is_mod and self.mod_writer is writer:
                 self.mod_writer = None
+                self._recent_frames.clear()
                 for future in self._acks.values():
                     if not future.done():
                         future.set_exception(ConnectionError("mod disconnected"))
+                await self._seal_recording("game_disconnected")
             writer.close()
             try:
                 await writer.wait_closed()
@@ -136,7 +171,10 @@ class BridgeServer:
             old=self.recorder
             # Swap before awaiting old-file drain, so incoming frames use the
             # new recorder immediately rather than dropping during rotation.
-            self.recorder=SessionRecorder(self.record_root,{"purpose":purpose}) if operation=="rotate_recording" else None
+            self.recording_enabled=operation=="rotate_recording"
+            self.record_purpose=purpose
+            self.recorder=self._new_recorder() if self.recording_enabled else None
+            self._recording_run=None
             if old:
                 if completed_purpose:old.metadata["purpose"]=completed_purpose
                 await asyncio.to_thread(old.close)
@@ -200,6 +238,11 @@ class BridgeServer:
                 temp = self.status_path.with_suffix(".tmp")
                 temp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
                 temp.replace(self.status_path)
+            if self.mod_writer and not self.mod_writer.is_closing():
+                try:
+                    self.mod_writer.write(encode(self.recording_message()))
+                    await self.mod_writer.drain()
+                except ConnectionError:pass
             await asyncio.sleep(1)
 
     async def close(self):

@@ -9,6 +9,7 @@ local command, lastRequest, lastRoom = nil, nil, nil
 local pendingEvents, inputEdges = {}, {active_trigger=false, bomb_trigger=false, card_trigger=false}
 local previousHeld, itemCache, inventoryCount = {}, {}, -1
 local rawFrame, lastError, drops = nil, "", 0
+local recording, recordingError = false, false
 
 local function arr(t) return setmetatable(t or {}, {__json_array=true}) end
 local function read(o, k, default)
@@ -72,7 +73,7 @@ end
 local function clearControl() command=nil;mode="manual" end
 local function disconnect(reason)
     if sock then pcall(function() sock:close() end) end
-    sock=nil;rx="";tx="";clearControl();lastError=reason or "disconnected"
+    sock=nil;rx="";tx="";clearControl();recording=false;recordingError=false;lastError=reason or "disconnected"
 end
 local function frameNo() return math.floor(Game():GetFrameCount()) end
 -- Keep continued games and reloaded mods in the same training split. Replays
@@ -91,7 +92,7 @@ local function connect()
     local connected,err=s:connect(HOST,PORT)
     if not connected then s:close();lastError=tostring(err);return end
     s:settimeout(0);sock=s;rx="";tx="";clearControl();lastError=""
-    emit({type="hello",client="isaac_mod",mod_version="0.3.0",capture_phase="pre_update",
+    emit({type="hello",client="isaac_mod",mod_version="0.3.1",capture_phase="pre_update",
           repentogon=REPENTOGON~=nil,run_id=runId,logic_hz=30})
     print("[IsaacJev] connected to Python; MANUAL mode")
 end
@@ -104,7 +105,9 @@ local function direction(v)
 end
 local function handle(msg)
     if msg.protocol_version~=VERSION then return end
-    if msg.type=="hello_ack" then return end
+    if msg.type=="hello_ack" or msg.type=="recording_status" then
+        recording=msg.recording==true;recordingError=msg.recording_error==true;return
+    end
     if msg.type~="command" then return end
     if msg.command=="set_mode" then
         if msg.mode~="manual" and msg.mode~="shadow" and msg.mode~="ai" then acknowledge(msg,false,"invalid mode");return end
@@ -305,7 +308,8 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER,function()
         if Input.IsButtonPressed(Keyboard.KEY_F8,p.ControllerIndex) then clearControl() end
     end
     if Game():IsPaused() then clearControl();network() end
-    Isaac.RenderText("Isaac Jev: "..mode.." | "..(sock and "CONNECTED" or lastError).." | F8: HUMAN",10,55,1,1,1,1)
+    local rec=recordingError and "REC ERROR" or recording and "REC" or "NOT REC"
+    Isaac.RenderText("Isaac Jev: "..mode.." | "..(sock and "CONNECTED" or lastError).." | "..rec.." | F8: HUMAN",10,55,1,1,1,1)
 end)
 mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
     if mode~="ai" or not command or not sock or Game():IsPaused() then return nil end

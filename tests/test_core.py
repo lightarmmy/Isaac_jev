@@ -194,4 +194,49 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNotNone(hub.recorder)
             finally:await hub.close()
 
+    async def test_recording_survives_game_restart_and_same_seed_replay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hub=BridgeServer(port=0,record_root=Path(tmp))
+            await hub.start()
+            async def connect_mod():
+                reader,writer=await asyncio.open_connection("127.0.0.1",hub.port)
+                writer.write(encode({"protocol_version":1,"type":"hello","client":"isaac_mod"}))
+                await writer.drain()
+                self.assertTrue(decode(await reader.readline())["recording"])
+                return writer
+            try:
+                writer=await connect_mod()
+                writer.write(encode(sample_frame(10)));await writer.drain();await asyncio.sleep(0.03)
+                first=hub.recorder.path
+                # A new run can restart the frame counter while reusing a seed.
+                writer.write(encode({"protocol_version":1,"type":"event","event":"run_started","run_id":"mock-run","game_frame":0}))
+                writer.write(encode(sample_frame(0)));await writer.drain();await asyncio.sleep(0.08)
+                second=hub.recorder.path
+                self.assertNotEqual(first,second)
+                self.assertEqual(hub.invalid,0)
+                self.assertTrue(json.loads((first/"session.json").read_text())["closed_at_unix"])
+                writer.close();await writer.wait_closed();await asyncio.sleep(0.08)
+                self.assertIsNone(hub.recorder)
+                self.assertTrue(hub.recording_enabled)
+                self.assertTrue(json.loads((second/"session.json").read_text())["closed_at_unix"])
+                writer=await connect_mod()
+                writer.write(encode(sample_frame(1)));await writer.drain();await asyncio.sleep(0.03)
+                third=hub.recorder.path
+                self.assertNotEqual(second,third)
+                writer.close();await writer.wait_closed();await asyncio.sleep(0.08)
+                self.assertEqual(sum(m.get("type")=="frame" for m in iter_messages(Path(tmp))),3)
+            finally:await hub.close()
+
+    async def test_explicit_record_stop_is_preserved_across_reconnect(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            hub=BridgeServer(port=0,record_root=Path(tmp));await hub.start()
+            try:
+                await hub.control({"command":"stop_recording"})
+                reader,writer=await asyncio.open_connection("127.0.0.1",hub.port)
+                writer.write(encode({"protocol_version":1,"type":"hello","client":"isaac_mod"}));await writer.drain()
+                self.assertFalse(decode(await reader.readline())["recording"])
+                self.assertIsNone(hub.recorder)
+                writer.close();await writer.wait_closed()
+            finally:await hub.close()
+
 if __name__=="__main__":unittest.main()

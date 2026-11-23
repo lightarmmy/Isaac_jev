@@ -4,7 +4,13 @@
 
 ## 采集
 
-桥接服务启动且模组显示 `manual | CONNECTED` 后，开始一局新的随机种子 Isaac / Normal。出生房中开启录制：
+双击项目根目录的 `Start_Recording.cmd` 开启后台采集。之后只需在实验版游戏中正常游玩，新局、死亡重开、退出游戏和重新进入均自动处理，每局或连接片段分开保存。新版模组显示 `manual | CONNECTED | REC` 表示正在录制；`NOT REC` 表示未录制，`REC ERROR` 表示写入错误或丢帧，需要检查。
+
+重开游戏不会关闭后台采集；游戏断开时自动封存当前 gzip，重连时自动新建文件。重玩同一种子仍归入同一训练/验证集合。请使用独立沙箱中的实验版，原版 Steam 游戏没有这条采集通路。
+
+当前正在运行的旧模组需要下次重启实验游戏才显示 REC，新版后台可以先开始保存数据。重启电脑后需再双击 `Start_Recording.cmd`；关机前双击 `Stop_Recording.cmd` 封存录制。不要直接强制结束采集进程或断电，否则当前尚未封存的片段可能不完整。
+
+也可以通过命令手动开启一次连续录制：
 
 ```powershell
 .venv\Scripts\python.exe -X utf8 run.py record rotate --purpose demonstration
@@ -12,13 +18,13 @@
 
 正常游玩。先限定普通泪弹与单人 Isaac；不要主动制造受伤来凑负样本，也不要用调试刷怪/道具片段混入正式示范。不同随机种子、房间、弹幕和普通主动道具逐步扩充。负样本会从自然受伤的前段轨迹自动标注；单纯没掉血不意味着所有动作都正确。
 
-结束或死亡后暂停，关闭这次录制：
+需要结束整个采集时，双击 `Stop_Recording.cmd`，或运行：
 
 ```powershell
 .venv\Scripts\python.exe -X utf8 run.py record stop
 ```
 
-每次新局重新开启录制。录制完整原始状态，之后可以调整弹幕数量、历史摘要和标注窗口，无需重新游玩。同一种子重玩/继续始终属于同一集合。
+每次新局无需手动开启或停止录制。录制完整原始状态，之后可以调整弹幕数量、历史摘要和标注窗口，无需重新游玩。同一种子重玩/继续始终属于同一集合。
 
 ```powershell
 .venv\Scripts\python.exe -X utf8 run.py inspect recordings

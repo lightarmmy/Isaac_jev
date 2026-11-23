@@ -92,6 +92,16 @@ class LuaModTests(unittest.TestCase):
         self.assertEqual(frame["room"]["grid"],[])
         self.assertEqual(frame["mode"],"manual")
 
+    def test_recording_indicator_tracks_server_status_without_changing_controls(self):
+        self.step()
+        self.lua.execute('Isaac.RenderText=function(text)HUD_TEXT=text end')
+        for recording,error,expected in [(True,False," | REC |"),(False,False," | NOT REC |"),(True,True," | REC ERROR |")]:
+            self.lua.globals().INCOMING[1]=json.dumps({"protocol_version":1,"type":"recording_status",
+                "recording":recording,"recording_error":error})+"\n"
+            self.step();self.lua.execute("CALLBACKS[2]()")
+            self.assertIn(expected,self.lua.globals().HUD_TEXT)
+            self.assertIn("manual",self.lua.globals().HUD_TEXT)
+
     def test_manual_shadow_and_expired_actions_never_inject(self):
         self.step();self.step();frame=[p for p in self.messages() if p["type"]=="frame"][-1]
         action={"command":"action","request_id":"a1","action_id":20,"move":{"x":1,"y":0},"shoot":{"x":0,"y":0},

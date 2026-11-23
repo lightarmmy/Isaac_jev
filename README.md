@@ -45,6 +45,8 @@ py -3.11 -X utf8 run.py mock-client --frames 90
 
 ## 采集与 L40S 训练
 
+批量采集双击项目根目录的 `Start_Recording.cmd` 即可，之后新局和重开实验游戏自动录制、封存、重连；新版模组的 REC 标记显示写入状态。结束采集或关机前双击 `Stop_Recording.cmd`。重启电脑后需要再次启动采集程序。以下命令仍可用于手动操作。
+
 ```powershell
 # Start a clean personal demonstration session; finish the preceding tests as diagnostic.
 py -3.11 -X utf8 run.py record rotate --purpose demonstration --completed-purpose diagnostic
