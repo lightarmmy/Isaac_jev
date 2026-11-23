@@ -17,7 +17,7 @@
 - 官方 [SaveSyncing.cpp](https://github.com/TeamREPENTOGON/REPENTOGON/blob/1.1.3a/repentogon/SaveSyncing/SaveSyncing.cpp) 明确说明：REPENTOGON 进度默认同步原版，而且 GameState 继续游戏文件仍共享。禁用进度同步本身不足以隔离整局存档。
 - 用户已选择 **Sandboxie 独立沙箱 + 实验 Steam 云同步隔离**。Sandboxie Plus 1.19.1 安装在 `D:\Program Files\Sandboxie-Plus`；独立沙箱 `IsaacJevLab` 已配置，DefaultBox 保留。不能仅设置 USERPROFILE 或仅沙箱化游戏就宣称完成隔离。
 - 已验证文件写入只出现在沙箱容器，且原存档、各 Steam 账户的以撒 userdata/配置及原 EXE 共 109 个文件哈希未变化。沙箱中的原存档可见数为 0，游戏设置 `SteamCloud=0`，沙箱内 Steam 已切换离线模式，本地 TCP 查询通过。
-- 官方 Launcher 已在沙箱中启动实验游戏；主菜单、mod 加载、人工移动/射击采集、真实主动使用事件均已验证。首段诊断录制正常封存 1728 帧、0 缺帧、0 录制丢帧，自动输入时序正在验收。
+- 官方 Launcher 已在沙箱中启动实验游戏；主菜单、mod 加载、人工移动/射击采集、真实主动使用事件均已验证。首段诊断录制正常封存 1728 帧、0 缺帧、0 录制丢帧。mod 0.3.0 的自动向右输入也已实机验证：命令实际查询帧 14138、停止帧 14140，X 从 258.17 增至 274.67，随后恢复 manual。
 
 ## 第一步：获取官方干净文件，保留中文本体
 
@@ -62,7 +62,7 @@ Launcher 的实验配置为 `.local\isaac-lab\launcher.ini`，不会沿用原用
 5. 先运行存档写入探针，验证宿主文件没有变化、写入确实落在沙箱内，再启动实验游戏。游戏前后核对原存档目录及 Steam userdata 的文件哈希。
 6. Python bridge 和模型推理运行在宿主，通过 `127.0.0.1:9527` 接收实验 mod 数据。沙箱应允许此本地 TCP 通道。
 
-本机此节的文件和 TCP 探针已通过，Steam 进程归属沙箱已核对；用户已确认离线模式，沙箱 Steam 配置也记录 `WantsOfflineMode=1`。人工实机采集已验证，自动输入时序仍在验收。
+本机此节的文件和 TCP 探针已通过，Steam 进程归属沙箱已核对；用户已确认离线模式，沙箱 Steam 配置也记录 `WantsOfflineMode=1`。人工采集和固定自动移动均已实机验证；训练后的模型和自动主动使用仍须在对应阶段验收。
 
 本机沙箱容器为 `.local\isaac-lab\sandbox`。其中独立存档位于 `user\current\Documents\My Games\Binding of Isaac Repentance+`，不是宿主 Documents 目录。实验文件不自动恢复到宿主，也不自动清空。
 
