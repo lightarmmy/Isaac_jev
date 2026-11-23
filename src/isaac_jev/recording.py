@@ -9,7 +9,8 @@ import uuid
 
 class SessionRecorder:
     def __init__(self, root: Path, metadata: dict | None = None):
-        self.path = root / (time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8])
+        created_ns=time.time_ns()
+        self.path = root / (time.strftime("%Y%m%d-%H%M%S",time.localtime(created_ns/1_000_000_000)) + f"-{created_ns%1_000_000_000:09d}-" + uuid.uuid4().hex[:8])
         self.path.mkdir(parents=True, exist_ok=False)
         self.metadata = {"format": "isaac-jev-jsonl-v1", "created_at_unix": time.time(), **(metadata or {})}
         self.accepted = self.written = self.dropped = 0
@@ -67,9 +68,13 @@ class SessionRecorder:
                               "written": self.written, "dropped": self.dropped, "error": self.error})
         self._save_metadata()
 
-def iter_messages(path: Path):
+def iter_messages(path: Path, include_diagnostics=True):
     files = sorted(path.glob("*/frames.jsonl.gz")) if path.is_dir() and not (path / "frames.jsonl.gz").exists() else [path / "frames.jsonl.gz" if path.is_dir() else path]
     for file in files:
+        metadata_path=file.parent/"session.json"
+        if not include_diagnostics and metadata_path.is_file():
+            metadata=json.loads(metadata_path.read_text(encoding="utf-8"))
+            if metadata.get("purpose")=="diagnostic":continue
         opener = gzip.open if file.suffix == ".gz" else open
         with opener(file, "rt", encoding="utf-8") as source:
             for number, line in enumerate(source, 1):

@@ -3,10 +3,10 @@ from pathlib import Path
 import hashlib
 import json
 import math
-from .actions import MOVES, MOVE_NAMES, ACTION_VERSION
+from .actions import MOVES, MOVE_NAMES, ACTION_VERSION, label_from_input
 from .protocol import finite
 
-FEATURE_VERSION = "combat-numeric-and-text-v1"
+FEATURE_VERSION = "combat-numeric-and-text-v2"
 RULES = (Path(__file__).parent / "rules" / "combat_v1.txt").read_text(encoding="utf-8")
 RULES_SHA256 = hashlib.sha256(RULES.encode()).hexdigest()
 ACTIVE_EFFECTS = {
@@ -86,6 +86,11 @@ def policy_observation(frame: dict) -> tuple[str, list[float], list[str]]:
             "dx":round(ex-px,1),"dy":round(ey-py,1),"vx":round(evx,2),"vy":round(evy,2),
             "hp":e.get("hp"),"state":e.get("state"),"animation":e.get("animation"),"vulnerable":e.get("vulnerable")})
     previous=frame.get("execution", {})
+    if frame.get("mode") in {"manual","shadow"}:
+        # This observation is paired with the NEXT frame's decision during
+        # training. Its own input is the preceding human control, not a label.
+        previous_action,previous_active=label_from_input(frame.get("human_input",{}))
+        previous={"action_id":previous_action,"use_active":previous_active}
     add("previous_action",previous.get("action_id",0),44)
     add("previous_active",bool(previous.get("use_active")),1)
     active_info={**active,"effect":ACTIVE_EFFECTS.get(int(finite(active.get("id"))),active.get("description","")),
@@ -99,4 +104,5 @@ def policy_observation(frame: dict) -> tuple[str, list[float], list[str]]:
 
 def contract():
     return {"feature_version":FEATURE_VERSION,"action_version":ACTION_VERSION,"rules_sha256":RULES_SHA256,
-            "raw_capture_phase":"pre_update","movement_risk_horizon_frames":6,"candidate_endpoint_frames":3}
+            "raw_capture_phase":"pre_update","movement_risk_horizon_frames":6,"candidate_endpoint_frames":3,
+            "observation_to_action_frame_lag":1,"active_labels":"human_edge_and_confirmed_primary_item_use"}

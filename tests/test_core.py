@@ -20,7 +20,8 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(command["move"],{"x":1,"y":1})
         self.assertEqual(command["shoot"],{"x":-1,"y":0})
         self.assertTrue(command["use_active"])
-        self.assertEqual(command["valid_until_frame"],13)
+        self.assertEqual(command["valid_until_frame"],16)
+        self.assertEqual(command["hold_frames"],3)
         with self.assertRaises(ValueError):Action(45)
         with self.assertRaises(ValueError):Action(0,1)
 
@@ -59,13 +60,36 @@ class CoreTests(unittest.TestCase):
                 for n in range(5):
                     frame=sample_frame(n);frame["run_id"]=run
                     frame["human_input"]["active_trigger"]=n==1
+                    if n==1:rec.append({"type":"event","event":"item_used","run_id":run,"game_frame":n,"item_id":45,"active_slot":0})
                     rec.append(frame)
             invalid=sample_frame(100);invalid["mode"]="ai";rec.append(invalid)
             rec.close();prepare_dataset(root/"records",root/"dataset",stride=3)
             rows=[json.loads(l) for l in (root/"dataset"/"samples.jsonl").read_text().splitlines()]
-            self.assertEqual(len(rows),9)
+            self.assertEqual(len(rows),6)
             self.assertEqual(sum(r["active_label"] for r in rows),3)
             for run in runids:self.assertEqual(len({r["split"] for r in rows if r["run_id"]==run}),1)
+            self.assertTrue(all(r["action_frame"]==r["game_frame"]+1 for r in rows))
+
+    def test_active_use_trains_on_charge_before_consumption_and_prior_control(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);rec=SessionRecorder(root/"records")
+            before=sample_frame(0)
+            before["human_input"]={"move":{"x":-1,"y":0},"shoot":{"x":0,"y":0},"active_trigger":False}
+            after=copy.deepcopy(before);after["game_frame"]=1
+            after["player"]["position"]["x"]=240
+            after["player"]["active"].update(charge=0,ready=False)
+            after["human_input"]["move"]["x"]=1;after["human_input"]["active_trigger"]=True
+            rec.append(before)
+            rec.append({"type":"event","event":"item_used","run_id":before["run_id"],"game_frame":1,"item_id":45,"active_slot":0})
+            rec.append(after);rec.close()
+            prepare_dataset(root/"records",root/"dataset")
+            row=json.loads((root/"dataset/samples.jsonl").read_text())
+            values=dict(zip(row["numeric_names"],row["numeric"]))
+            self.assertTrue(row["active_label"])
+            self.assertEqual(values["active_charge"],4/12)
+            self.assertEqual(values["active_ready"],1)
+            self.assertEqual(values["previous_action"],15/44)
+            self.assertEqual(row["action_label"],20)
 
 class NetworkTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -92,12 +116,25 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
         reader,writer=await asyncio.open_connection("127.0.0.1",self.hub.port)
         writer.write(encode({"protocol_version":1,"type":"hello","client":"isaac_mod"}));await writer.drain();await reader.readline()
         writer.write(encode(sample_frame(10)));await writer.drain();await asyncio.sleep(0.03)
-        command=Action(20,False,2).as_command(sample_frame(8))
+        command=Action(20,False,2).as_command(sample_frame(4))
         result=await request_control(command,port=self.hub.port)
         self.assertFalse(result["ok"]);self.assertIn("expired",result["error"])
         command=Action(20).as_command(sample_frame(10));command["room_id"]="wrong-room"
         result=await request_control(command,port=self.hub.port)
         self.assertFalse(result["ok"]);self.assertIn("mismatch",result["error"])
         writer.close();await writer.wait_closed()
+
+    async def test_record_rotation_drains_gzip_and_excludes_diagnostics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.hub.record_root=Path(tmp)
+            self.hub.recorder=SessionRecorder(Path(tmp),{"purpose":"diagnostic"})
+            self.hub.recorder.append(sample_frame(0))
+            rotated=await request_control({"command":"rotate_recording","purpose":"demonstration"},port=self.hub.port)
+            self.assertTrue(rotated["ok"]);self.assertIsNone(rotated["completed_error"])
+            self.hub.recorder.append(sample_frame(1))
+            stopped=await request_control({"command":"stop_recording"},port=self.hub.port)
+            self.assertTrue(stopped["ok"]);self.assertIsNone(stopped["completed_error"])
+            self.assertEqual([m["game_frame"] for m in iter_messages(Path(tmp))],[0,1])
+            self.assertEqual([m["game_frame"] for m in iter_messages(Path(tmp),include_diagnostics=False)],[1])
 
 if __name__=="__main__":unittest.main()

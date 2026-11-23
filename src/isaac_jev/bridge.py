@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 import uuid
 
-from .actions import Action
+from .actions import Action,MAX_OBSERVATION_AGE_FRAMES
 from .protocol import MAX_MESSAGE_BYTES, PROTOCOL_VERSION, MODES, decode, encode, validate_frame
 from .recording import SessionRecorder
 
@@ -15,6 +15,7 @@ class BridgeServer:
         if host not in {"127.0.0.1", "localhost"}:
             raise ValueError("this bridge binds to loopback only")
         self.host, self.port = host, port
+        self.record_root = record_root
         self.status_path = status_path
         self.recorder = SessionRecorder(record_root) if record_root else None
         self.latest = None
@@ -117,6 +118,24 @@ class BridgeServer:
         if not isinstance(payload, dict):
             return {"ok": False, "error": "control payload must be an object"}
         operation = payload.get("command")
+        if operation in {"rotate_recording","stop_recording"}:
+            purpose=payload.get("purpose","demonstration")
+            completed_purpose=payload.get("completed_purpose")
+            if purpose not in {"diagnostic","demonstration"} or completed_purpose not in {None,"diagnostic","demonstration"}:
+                return {"ok":False,"error":"invalid recording purpose"}
+            if operation=="rotate_recording" and not self.record_root:
+                return {"ok":False,"error":"bridge was started without a recording root"}
+            old=self.recorder
+            # Swap before awaiting old-file drain, so incoming frames use the
+            # new recorder immediately rather than dropping during rotation.
+            self.recorder=SessionRecorder(self.record_root,{"purpose":purpose}) if operation=="rotate_recording" else None
+            if old:
+                if completed_purpose:old.metadata["purpose"]=completed_purpose
+                await asyncio.to_thread(old.close)
+            return {"ok":True,"recording":str(self.recorder.path.resolve()) if self.recorder else None,
+                    "completed_recording":str(old.path.resolve()) if old else None,
+                    "completed_written":old.written if old else 0,"completed_dropped":old.dropped if old else 0,
+                    "completed_error":old.error if old else None}
         if operation == "get_status":
             return {"ok": True, "status": self.status()}
         if operation == "get_frame":
@@ -140,7 +159,7 @@ class BridgeServer:
                 if payload.get("run_id") != self.latest["run_id"] or payload.get("room_id") != self.latest["room"]["id"]:
                     raise ValueError("action run/room mismatch")
                 action = Action(payload.get("action_id"), payload.get("use_active", False), payload.get("hold_frames", 3))
-                if not 0 <= self.latest["game_frame"] - observed < action.hold_frames:
+                if not 0 <= self.latest["game_frame"] - observed < MAX_OBSERVATION_AGE_FRAMES:
                     raise ValueError("action already expired or from future frame")
                 command = action.as_command({"run_id": payload["run_id"], "room": {"id": payload["room_id"]}, "game_frame": observed})
             else:

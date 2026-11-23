@@ -4,7 +4,7 @@
 
 高层路线/道具决策计划交给 DeepSeek API；当前实现首先打通房间战斗数据与控制链路。
 
-当前安装状态：**实验副本已安装 REPENTOGON 1.1.3a，并通过官方 Launcher 的 DLL 与游戏版本验证**。原游戏有中文替换文件，保留原安装；实验副本导入官方 Steam depot，再应用官方补丁。已配置 Sandboxie 独立沙箱，文件写入和本地 TCP 探针通过；Steam 处于沙箱内且已切换离线模式。首次实机启动正在验证，尚未收到游戏帧，见 [接入指南](docs/CONNECT_ISAAC.md)。
+当前状态：**实验副本已实机连接**，使用 REPENTOGON 1.1.3a 和独立 Sandboxie 环境，实验 Steam 处于离线模式。首段诊断录制正常封存：1728 个实机帧、15 种移动射击组合、2 次真实主动使用事件，缺帧与录制丢帧均为 0。自动输入的通信与执行时序正在验收；模型训练和 GPU 推理尚未执行。见 [接入指南](docs/CONNECT_ISAAC.md)。
 
 ## 已实现
 
@@ -44,9 +44,15 @@ py -3.11 -X utf8 run.py mock-client --frames 90
 ## 采集与 L40S 训练
 
 ```powershell
+# Start a clean personal demonstration session; finish the preceding tests as diagnostic.
+py -3.11 -X utf8 run.py record rotate --purpose demonstration --completed-purpose diagnostic
+# Play manually, then close the recording normally.
+py -3.11 -X utf8 run.py record stop
 py -3.11 -X utf8 run.py inspect recordings
 py -3.11 -X utf8 run.py prepare-dataset recordings --output datasets/combat-v1
 ```
+
+转换排除 diagnostic 会话，观测帧 N 对齐人工操作帧 N+1；主动正标签同时要求按下边沿和真实使用事件。完整录制后再准备数据集，不能把空房按键测试当作战斗示范。
 
 在集群 Linux / L40S 环境中：
 

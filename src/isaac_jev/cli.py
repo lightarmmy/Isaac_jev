@@ -22,6 +22,9 @@ def doctor(game: Path):
 
 async def serve(args):
     hub=BridgeServer(port=args.port,record_root=Path(args.record) if args.record else None,status_path=Path(args.status_file))
+    if hub.recorder:
+        hub.recorder.metadata["purpose"]=args.record_purpose
+        hub.recorder._save_metadata()
     await hub.start()
     print(f"Bridge listening on 127.0.0.1:{hub.port}; awaiting Isaac mod.",flush=True)
     if hub.recorder:print("Recording:",hub.recorder.path.resolve(),flush=True)
@@ -57,7 +60,9 @@ async def probe(args):
     try:
         print(await request_control({"command":"set_mode","mode":"ai"},port=args.port))
         frame=(await request_control({"command":"get_frame"},port=args.port))["frame"]
-        print(await request_control(Action(20,False,2).as_command(frame),port=args.port))
+        result=await request_control(Action(20,False,2).as_command(frame),port=args.port)
+        print(result)
+        if not result.get("ok"):raise RuntimeError("Probe action was rejected: "+str(result))
         await asyncio.sleep(0.12)
     finally:
         print(await request_control({"command":"set_mode","mode":"manual"},port=args.port))
@@ -84,6 +89,8 @@ def main():
     sub=parser.add_subparsers(dest="cmd",required=True)
     p=sub.add_parser("doctor");p.add_argument("--game",type=Path,default=Path(".local/isaac-lab/game"))
     p=sub.add_parser("bridge");p.add_argument("--port",type=int,default=9527);p.add_argument("--record",default="recordings");p.add_argument("--status-file",default=".local/bridge_status.json")
+    p.add_argument("--record-purpose",choices=["demonstration","diagnostic"],default="demonstration")
+    p=sub.add_parser("record");p.add_argument("operation",choices=["rotate","stop"]);p.add_argument("--purpose",choices=["demonstration","diagnostic"],default="demonstration");p.add_argument("--completed-purpose",choices=["demonstration","diagnostic"]);p.add_argument("--port",type=int,default=9527)
     for name in ["status","frame","probe"]:
         p=sub.add_parser(name);p.add_argument("--port",type=int,default=9527)
     p=sub.add_parser("mode");p.add_argument("mode",choices=["manual","shadow","ai"]);p.add_argument("--port",type=int,default=9527)
@@ -96,6 +103,8 @@ def main():
     args=parser.parse_args()
     if args.cmd=="doctor":doctor(args.game)
     elif args.cmd=="bridge":asyncio.run(serve(args))
+    elif args.cmd=="record":
+        print(json.dumps(asyncio.run(request_control({"command":"rotate_recording" if args.operation=="rotate" else "stop_recording","purpose":args.purpose,"completed_purpose":args.completed_purpose},port=args.port)),ensure_ascii=False,indent=2))
     elif args.cmd in {"status","frame"}:print(json.dumps(asyncio.run(request_control({"command":"get_"+args.cmd},port=args.port)),ensure_ascii=False,indent=2))
     elif args.cmd=="mode":print(asyncio.run(request_control({"command":"set_mode","mode":args.mode},port=args.port)))
     elif args.cmd=="probe":asyncio.run(probe(args))

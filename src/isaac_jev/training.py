@@ -17,24 +17,40 @@ def prepare_dataset(recordings:Path,output:Path,stride=1):
     if stride<1:raise ValueError("stride must be positive")
     output.mkdir(parents=True,exist_ok=True)
     counts={"train":0,"validation":0,"test":0};runs={k:set() for k in counts};active_count=0
+    # Item use can occur before MC_PRE_UPDATE in the same logic frame. A
+    # complete event pass also handles events transported after their frame.
+    uses={(m["run_id"],m["game_frame"],m.get("item_id"))
+          for m in iter_messages(recordings,include_diagnostics=False)
+          if m.get("type")=="event" and m.get("event")=="item_used" and m.get("active_slot")==0}
+    preceding={};unaligned=0;active_attempts=0
     with (output/"samples.jsonl").open("w",encoding="utf-8") as out:
-        for frame in iter_messages(recordings):
-            if frame.get("type")!="frame" or frame.get("mode")!="manual":continue
-            if frame.get("capture_phase")!="pre_update":continue
-            if frame.get("supported_player_count",1)!=1 or frame["player"].get("dead"):continue
-            if frame["room"].get("clear") and not any(e.get("kind")=="projectile" for e in frame["entities"]):continue
-            action,active=label_from_input(frame["human_input"])
+        for frame in iter_messages(recordings,include_diagnostics=False):
+            if frame.get("type")!="frame":continue
+            observation=preceding.get(frame["run_id"])
+            preceding[frame["run_id"]]=frame
+            if not observation or observation["game_frame"]+1!=frame["game_frame"] or observation["room"]["id"]!=frame["room"]["id"]:
+                unaligned+=1;continue
+            if frame.get("mode")!="manual" or observation.get("mode")!="manual":continue
+            if frame.get("capture_phase")!="pre_update" or observation.get("capture_phase")!="pre_update":continue
+            if frame.get("supported_player_count",1)!=1 or observation.get("supported_player_count",1)!=1 or frame["player"].get("dead"):continue
+            if not observation["player"].get("controls_enabled",True):continue
+            if observation["room"].get("clear") and not any(e.get("kind")=="projectile" for e in observation["entities"]):continue
+            action,attempt=label_from_input(frame["human_input"])
+            item=observation["player"].get("active",{})
+            active=bool(attempt and item.get("ready") and (frame["run_id"],frame["game_frame"],item.get("id")) in uses)
+            active_attempts+=int(attempt)
             # Keep rare active-item edges even when movement samples are subsampled.
             if frame["game_frame"]%stride and not active:continue
-            prompt,numeric,names=policy_observation(frame)
+            prompt,numeric,names=policy_observation(observation)
             split=split_for_run(frame["run_id"]);counts[split]+=1;runs[split].add(frame["run_id"])
             active_count+=int(active)
-            row={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"game_frame":frame["game_frame"],
+            row={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"game_frame":observation["game_frame"],"action_frame":frame["game_frame"],
                  "split":split,"prompt":prompt,"numeric":numeric,"numeric_names":names,
-                 "action_label":action,"active_label":active,"active_item_id":frame["player"].get("active",{}).get("id",0)}
+                 "action_label":action,"active_label":active,"active_attempt":attempt,"active_item_id":item.get("id",0)}
             out.write(json.dumps(row,ensure_ascii=False,separators=(",",":"),allow_nan=False)+"\n")
     summary={**contract(),"counts":counts,"runs":{k:len(v) for k,v in runs.items()},"active_triggers":active_count,
-             "split_rule":"sha256(run_id) modulo 10: 0=test, 1=validation, 2..9=train","stride":stride}
+             "split_rule":"sha256(run_id) modulo 10: 0=test, 1=validation, 2..9=train","stride":stride,
+             "unaligned_frames_skipped":unaligned,"active_attempts":active_attempts,"diagnostic_sessions_excluded":True}
     (output/"dataset.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
     print(json.dumps(summary,ensure_ascii=False,indent=2))
     if not counts["train"] or not counts["validation"]:

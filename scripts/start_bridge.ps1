@@ -1,3 +1,4 @@
+param([ValidateSet('diagnostic','demonstration')][string]$RecordPurpose = 'demonstration')
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $taskLocal = Join-Path $taskRoot '.local'
@@ -10,7 +11,7 @@ if (Test-Path -LiteralPath $taskPidFile) {
 $taskPython = (& py -3.11 -c 'import sys; print(sys.executable)').Trim()
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $taskPython)) { throw 'Python 3.11 is unavailable' }
 New-Item -ItemType Directory -Path $taskLocal -Force | Out-Null
-$taskArgs = @('-X','utf8',('"'+(Join-Path $taskRoot 'run.py')+'"'),'bridge','--record','recordings')
+$taskArgs = @('-X','utf8',('"'+(Join-Path $taskRoot 'run.py')+'"'),'bridge','--record','recordings','--record-purpose',$RecordPurpose)
 $taskProcess = Start-Process -FilePath $taskPython -ArgumentList $taskArgs -WorkingDirectory $taskRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $taskLocal 'bridge.log') -RedirectStandardError (Join-Path $taskLocal 'bridge-error.log') -PassThru
 @{ pid = $taskProcess.Id; python = $taskPython; started_at = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -LiteralPath $taskPidFile -Encoding utf8
 Write-Output ('Started host bridge PID ' + $taskProcess.Id + ', localhost:9527; manual mode on game connection')

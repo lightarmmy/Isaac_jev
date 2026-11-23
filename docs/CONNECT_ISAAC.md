@@ -17,7 +17,7 @@
 - 官方 [SaveSyncing.cpp](https://github.com/TeamREPENTOGON/REPENTOGON/blob/1.1.3a/repentogon/SaveSyncing/SaveSyncing.cpp) 明确说明：REPENTOGON 进度默认同步原版，而且 GameState 继续游戏文件仍共享。禁用进度同步本身不足以隔离整局存档。
 - 用户已选择 **Sandboxie 独立沙箱 + 实验 Steam 云同步隔离**。Sandboxie Plus 1.19.1 安装在 `D:\Program Files\Sandboxie-Plus`；独立沙箱 `IsaacJevLab` 已配置，DefaultBox 保留。不能仅设置 USERPROFILE 或仅沙箱化游戏就宣称完成隔离。
 - 已验证文件写入只出现在沙箱容器，且原存档、各 Steam 账户的以撒 userdata/配置及原 EXE 共 109 个文件哈希未变化。沙箱中的原存档可见数为 0，游戏设置 `SteamCloud=0`，沙箱内 Steam 已切换离线模式，本地 TCP 查询通过。
-- 官方 Launcher 已在沙箱中启动实验游戏进程，并完成 REPENTOGON 注入；主菜单和实机采集尚待验证。探针通过不等于游戏已接入。
+- 官方 Launcher 已在沙箱中启动实验游戏；主菜单、mod 加载、人工移动/射击采集、真实主动使用事件均已验证。首段诊断录制正常封存 1728 帧、0 缺帧、0 录制丢帧，自动输入时序正在验收。
 
 ## 第一步：获取官方干净文件，保留中文本体
 
@@ -62,7 +62,7 @@ Launcher 的实验配置为 `.local\isaac-lab\launcher.ini`，不会沿用原用
 5. 先运行存档写入探针，验证宿主文件没有变化、写入确实落在沙箱内，再启动实验游戏。游戏前后核对原存档目录及 Steam userdata 的文件哈希。
 6. Python bridge 和模型推理运行在宿主，通过 `127.0.0.1:9527` 接收实验 mod 数据。沙箱应允许此本地 TCP 通道。
 
-本机此节的文件和 TCP 探针已通过，Steam 进程归属沙箱已核对；用户已确认离线模式，沙箱 Steam 配置也记录 `WantsOfflineMode=1`。实机帧、输入控制和采集仍需下一步验证。
+本机此节的文件和 TCP 探针已通过，Steam 进程归属沙箱已核对；用户已确认离线模式，沙箱 Steam 配置也记录 `WantsOfflineMode=1`。人工实机采集已验证，自动输入时序仍在验收。
 
 本机沙箱容器为 `.local\isaac-lab\sandbox`。其中独立存档位于 `user\current\Documents\My Games\Binding of Isaac Repentance+`，不是宿主 Documents 目录。实验文件不自动恢复到宿主，也不自动清空。
 
@@ -75,6 +75,8 @@ Launcher 的实验配置为 `.local\isaac-lab\launcher.ini`，不会沿用原用
 - `scripts/sandbox_network_probe.ps1`：从沙箱查询宿主 bridge 状态，不冒充游戏客户端。
 - `scripts/start_bridge.ps1`：启动隐藏的宿主录制服务，日志在 `.local/bridge.log`，PID 在 `.local/bridge-process.json`。
 - `scripts/open_sandbox_launcher.ps1`：确认 Steam 进程都位于实验沙箱、离线步骤已确认、宿主哈希匹配后，打开官方 Launcher；不自动开始游戏。
+- `scripts/stop_bridge.py`：核对记录的 PID 创建时间及独立控制台，发送 Ctrl+C 正常关闭 bridge，排空 gzip 写入；不强制终止其他进程。
+- `scripts/live_control_probe.py`：只在新鲜、静止、房间中央且周围无网格实体时尝试一次短输入探针，恢复人工控制并保存位置差值。
 
 ## 第三步：复制采集 mod
 
@@ -128,6 +130,9 @@ py -3.11 -X utf8 run.py probe
 确认通路后，保持 manual 正常游玩。录制在 recordings/时间戳会话/frames.jsonl.gz，停止桥时写入丢帧和完整性信息。
 
 ```powershell
+py -3.11 -X utf8 run.py record rotate --purpose demonstration --completed-purpose diagnostic
+# Finish manual gameplay before the next command.
+py -3.11 -X utf8 run.py record stop
 py -3.11 -X utf8 run.py inspect recordings
 py -3.11 -X utf8 run.py prepare-dataset recordings --output datasets/combat-v1
 ```

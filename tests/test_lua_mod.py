@@ -14,7 +14,7 @@ except ImportError:
 MOCK_GAME=r'''
 TIME=3000; FRAME=0; INCOMING={}; SENT={}; CALLBACKS={}; HELD={}; PAUSED=false
 REPENTOGON=true
-ModCallbacks={MC_PRE_UPDATE=1026,MC_POST_GAME_STARTED=15,MC_POST_RENDER=2,MC_INPUT_ACTION=13,MC_ENTITY_TAKE_DMG=11,MC_PRE_GAME_EXIT=17}
+ModCallbacks={MC_PRE_UPDATE=1026,MC_POST_GAME_STARTED=15,MC_POST_RENDER=2,MC_INPUT_ACTION=13,MC_ENTITY_TAKE_DMG=11,MC_USE_ITEM=3,MC_PRE_GAME_EXIT=17}
 ButtonAction={ACTION_LEFT=0,ACTION_RIGHT=1,ACTION_UP=2,ACTION_DOWN=3,ACTION_SHOOTLEFT=4,ACTION_SHOOTRIGHT=5,ACTION_SHOOTUP=6,ACTION_SHOOTDOWN=7,ACTION_ITEM=9,ACTION_BOMB=8,ACTION_PILLCARD=10}
 InputHook={IS_ACTION_PRESSED=0,IS_ACTION_TRIGGERED=1,GET_ACTION_VALUE=2}
 ActiveSlot={SLOT_PRIMARY=0};EntityType={ENTITY_PLAYER=1};EntityFlag={FLAG_FRIENDLY=1,FLAG_CHARM=2};Keyboard={KEY_F8=119}
@@ -121,6 +121,47 @@ class LuaModTests(unittest.TestCase):
         self.lua.globals().FRAME=current+1
         self.assertFalse(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,9)"))
         self.lua.execute("HELD[119]=true; CALLBACKS[2]()")
+        self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+
+    def test_128_bit_flags_keep_high_bits_and_localization_keys_are_resolved(self):
+        self.lua.execute('PLAYER.TearFlags={l=1,h=-9223372036854775807-1}; Isaac.GetLocalizedString=function(category,key,language) assert(category=="Items" and language=="en"); return "translated:"..key end; Isaac.GetItemConfig().GetCollectible=function() return {Name="#BOOK_NAME",Description="#BOOK_DESCRIPTION",MaxCharges=4} end')
+        self.step();self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertEqual(frame["player"]["stats"]["tear_flags"],{"encoding":"bitset128","low_hex":"0000000000000001","high_hex":"8000000000000000"})
+        self.assertEqual(frame["player"]["active"]["name"],"translated:BOOK_NAME")
+        self.assertEqual(frame["player"]["active"]["name_key"],"#BOOK_NAME")
+
+    def test_actual_item_use_is_logged_without_overriding_game_behavior(self):
+        self.step();self.messages()
+        result=self.lua.eval('CALLBACKS[3](nil,45,nil,PLAYER,0,0,0)')
+        self.assertIsNone(result)
+        self.step()  # Event transport flushes on the following pre-update.
+        event=next(p for p in self.messages() if p.get("event")=="item_used")
+        self.assertEqual(event["item_id"],45)
+        self.assertEqual(event["active_slot"],0)
+
+    def test_continued_run_keeps_the_same_dataset_group(self):
+        self.step();self.step()
+        first=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.lua.execute('TIME=TIME+100000; CALLBACKS[15](nil,true)')
+        self.step();self.step()
+        continued=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertEqual(first["run_id"],continued["run_id"])
+
+    def test_late_command_holds_two_actual_input_frames_and_active_fires_once(self):
+        self.step();self.step();frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+        action={"command":"action","request_id":"delayed","action_id":20,"move":{"x":1,"y":0},"shoot":{"x":0,"y":0},
+                "use_active":True,"hold_frames":2,"observation_frame":1,"valid_until_frame":7,
+                "run_id":frame["run_id"],"room_id":frame["room"]["id"]}
+        self.send(action)
+        # It arrived in frame 3; game input is first queried in frame 4.
+        self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,9)"))
+        self.lua.globals().FRAME=5
+        self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.assertFalse(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,9)"))
+        self.lua.globals().FRAME=6
         self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
 
 if __name__=="__main__":unittest.main()

@@ -7,7 +7,8 @@ MOVE_NAMES = ("stay", "up", "down", "left", "right", "up_left", "up_right", "dow
 SHOTS = ((0, 0), (0, -1), (0, 1), (-1, 0), (1, 0))
 SHOT_NAMES = ("none", "up", "down", "left", "right")
 ACTION_COUNT = len(MOVES) * len(SHOTS)
-ACTION_VERSION = "move9-shoot5-active-edge-v1"
+ACTION_VERSION = "move9-shoot5-active-edge-v2"
+MAX_OBSERVATION_AGE_FRAMES = 6
 
 def _sign(value: float) -> int:
     value = float(value)
@@ -46,7 +47,7 @@ class Action:
                 "use_active": self.use_active, "hold_frames": self.hold_frames,
                 "run_id": frame["run_id"], "room_id": frame["room"]["id"],
                 "observation_frame": frame["game_frame"],
-                "valid_until_frame": frame["game_frame"] + self.hold_frames}
+                "valid_until_frame": frame["game_frame"] + MAX_OBSERVATION_AGE_FRAMES}
 
 def action_map() -> list[dict]:
     return [{"id": i, "move": MOVE_NAMES[i // len(SHOTS)], "shoot": SHOT_NAMES[i % len(SHOTS)]}
