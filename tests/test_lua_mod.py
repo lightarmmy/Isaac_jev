@@ -102,6 +102,18 @@ class LuaModTests(unittest.TestCase):
             self.assertIn(expected,self.lua.globals().HUD_TEXT)
             self.assertIn("manual",self.lua.globals().HUD_TEXT)
 
+    def test_bomb_press_and_edge_are_saved_in_raw_input(self):
+        self.step();self.step();self.messages()
+        self.lua.execute("HELD[8]=true; CALLBACKS[2]()")
+        self.step();self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertTrue(frame["human_input"]["bomb_trigger"])
+        self.assertTrue(frame["human_input"]["bomb_pressed"])
+        self.lua.execute("CALLBACKS[2]()");self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertFalse(frame["human_input"]["bomb_trigger"])
+        self.assertTrue(frame["human_input"]["bomb_pressed"])
+
     def test_manual_shadow_and_expired_actions_never_inject(self):
         self.step();self.step();frame=[p for p in self.messages() if p["type"]=="frame"][-1]
         action={"command":"action","request_id":"a1","action_id":20,"move":{"x":1,"y":0},"shoot":{"x":0,"y":0},

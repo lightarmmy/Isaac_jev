@@ -92,7 +92,7 @@ local function connect()
     local connected,err=s:connect(HOST,PORT)
     if not connected then s:close();lastError=tostring(err);return end
     s:settimeout(0);sock=s;rx="";tx="";clearControl();lastError=""
-    emit({type="hello",client="isaac_mod",mod_version="0.3.1",capture_phase="pre_update",
+    emit({type="hello",client="isaac_mod",mod_version="0.3.2",capture_phase="pre_update",
           repentogon=REPENTOGON~=nil,run_id=runId,logic_hz=30})
     print("[IsaacJev] connected to Python; MANUAL mode")
 end
@@ -169,6 +169,7 @@ local function humanInput(p)
                    y=value(ButtonAction.ACTION_SHOOTDOWN)-value(ButtonAction.ACTION_SHOOTUP)},
             active_pressed=Input.IsActionPressed(ButtonAction.ACTION_ITEM,c),
             active_trigger=inputEdges.active_trigger, bomb_trigger=inputEdges.bomb_trigger,
+            bomb_pressed=Input.IsActionPressed(ButtonAction.ACTION_BOMB,c),
             card_trigger=inputEdges.card_trigger}
 end
 local function activeItem(p)

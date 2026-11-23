@@ -11,6 +11,7 @@ from .outcomes import segment_frames,collect_player_damage,damage_evidence,label
 from .recording import iter_messages
 from .bridge import request_control
 from .rooms import TRAINING_PHASE,combat_active
+from .dataset_filters import find_combat_bomb_rooms,UNSUPPORTED_ACTION_FILTER
 
 def split_for_run(run_id):
     bucket=int(hashlib.sha256(run_id.encode()).hexdigest()[:8],16)%10
@@ -57,13 +58,18 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
     missing=set(split_overrides)-available_runs
     if missing:raise ValueError(f"Split overrides reference unrecorded runs: {sorted(missing)}")
     callbacks=collect_player_damage(iter_messages(recordings,include_diagnostics=False,include_session=True))
+    bomb_rooms,bomb_triggers=find_combat_bomb_rooms(iter_messages(recordings,include_diagnostics=False,include_session=True))
     unaligned=0;active_attempts=0;outcome_counts={split:Counter() for split in counts};reasons=Counter();damage_counts=Counter()
+    excluded_bomb_pairs=0
     with (output/"samples.jsonl").open("w",encoding="utf-8") as out:
         for segment in segment_frames(iter_messages(recordings,include_diagnostics=False,include_session=True)):
             unaligned+=1
             evidence=damage_evidence(segment,callbacks)
             segment_split=split_overrides.get(segment[0]["run_id"],split_for_run(segment[0]["run_id"]))
             damage_counts[segment_split]+=sum(v=="confirmed_player_damage" for v in evidence.values())
+            if (segment[0]["run_id"],segment[0]["room"]["id"]) in bomb_rooms:
+                excluded_bomb_pairs+=sum(combat_active(a) and combat_active(b) for a,b in zip(segment,segment[1:]))
+                continue
             for index in range(len(segment)-1):
                 observation,frame=segment[index],segment[index+1]
                 if frame["player"].get("dead") or observation["player"].get("dead"):continue
@@ -96,7 +102,9 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
              "outcome_window_frames":outcome_window_frames,"outcome_counts":{k:dict(v) for k,v in outcome_counts.items()},
              "confirmed_damage_events_by_split":dict(damage_counts),
              "outcome_reasons":dict(reasons),"outcome_warning":"Observed trajectory association, not causal action correctness",
-             "training_phase":TRAINING_PHASE}
+             "training_phase":TRAINING_PHASE,"unsupported_action_filter":UNSUPPORTED_ACTION_FILTER,
+             "excluded_combat_bomb_rooms":[{"run_id":run,"room_id":room} for run,room in sorted(bomb_rooms)],
+             "combat_bomb_triggers":bomb_triggers,"combat_bomb_pairs_excluded_before_stride":excluded_bomb_pairs}
     (output/"dataset.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
     print(json.dumps(summary,ensure_ascii=False,indent=2))
     if not counts["train"] or not counts["validation"]:
@@ -118,6 +126,7 @@ def train(args):
     dataset=Path(args.dataset);output=Path(args.output)
     meta=json.loads((dataset/"dataset.json").read_text(encoding="utf-8"))
     if meta.get("training_phase")!=TRAINING_PHASE:raise ValueError("Rebuild the dataset for hostile-enemy/projectile combat phases")
+    if meta.get("unsupported_action_filter")!=UNSUPPORTED_ACTION_FILTER:raise ValueError("Rebuild the dataset to exclude combat rooms with human bomb input")
     if any(meta.get(k)!=v for k,v in contract().items()):raise ValueError("Dataset feature/rule contract differs from the current code")
     rows=[json.loads(l) for l in (dataset/"samples.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     groups={}
@@ -204,6 +213,7 @@ def train(args):
     config={**contract(),"model":args.model,"revision":revision,"embedding_size":size,"numeric_size":numeric.shape[1],
             "artifact_purpose":"workflow-validation",
             "training_phase":TRAINING_PHASE,
+            "unsupported_action_filter":UNSUPPORTED_ACTION_FILTER,
             "outcome_window_frames":meta["outcome_window_frames"],"training_conditions":list(CONDITIONS),
             "model_selection":"positive-validation-joint-nll" if positive_val else "conditional-validation-joint-nll-no-positive-validation",
             "head_hidden_size":256,"max_length":args.max_length,"dtype":"bfloat16","hold_frames":3,
