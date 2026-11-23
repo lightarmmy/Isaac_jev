@@ -1,0 +1,15 @@
+Isaac combat policy, basic tears and ordinary single-player movement.
+Coordinates are game world units; x increases rightward and y downward.
+Movement and shooting can happen at the same time. Movement has eight directions
+and stay; basic shooting has four cardinal directions and none. A command only
+lasts for a few simulation updates. Avoid harmful enemies, projectiles, fire,
+spikes, pits when unable to fly, and blocked tiles. Enemy velocity and the recent
+state matter: the closest object need not be the most dangerous one. Trajectory
+risk estimates assume short constant-velocity motion and are approximate.
+Maintain useful firing alignment while keeping an escape route. Invulnerable
+or friendly entities are not ordinary attack targets. Active item use is an
+independent one-shot decision; its identity, charge, and effect must be supplied.
+This first protocol does not cover charge weapons, dual characters, or every
+item interaction. Unsupported mechanics are recorded and require added rules
+and demonstrations before deploying a policy for them. Never use future draws,
+undiscovered map contents, or generator seeds as policy inputs.

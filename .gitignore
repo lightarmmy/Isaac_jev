@@ -1,0 +1,14 @@
+.venv/
+.local/
+.env
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+recordings/
+artifacts/
+datasets/
+*.safetensors
+*.npz
+*.pt
+*.log

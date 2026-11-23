@@ -1,0 +1,13 @@
+{
+  "model": "Qwen/Qwen3.5-2B",
+  "backbone_frozen": true,
+  "max_length": 1024,
+  "action_count": 45,
+  "active_item_head": "independent_binary_edge",
+  "head_hidden_size": 256,
+  "capture_phase": "pre_update",
+  "dtype": "bfloat16",
+  "train_device": "L40S",
+  "inference_device": "RTX 4060 Laptop",
+  "initial_mode": "shadow"
+}
