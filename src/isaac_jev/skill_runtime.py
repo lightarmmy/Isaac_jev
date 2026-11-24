@@ -75,6 +75,8 @@ class GameRuntime:
             combat_timing={"observation_budget_frames":MAX_OBSERVATION_AGE_FRAMES,"hold_frames":self.combat_hold_frames,
                 "execution_timing":EXECUTION_TIMING,"counters":dict(self.combat_stats)})
         result["actions"]=self.actions() if result.get("phase")=="planning" else []
+        navigator=(self.task or {}).get("navigator")
+        if navigator and hasattr(navigator,"describe"):result["execution"]["navigation"]=navigator.describe()
         return result
 
     async def start(self,wait_seconds=20):
@@ -175,6 +177,7 @@ class GameRuntime:
         if not result.get("ok"):self.last_error=reason
         else:self.last_error=None
         self.last_action_frame=(frame["run_id"],frame["room"]["id"],frame["game_frame"])
+        return result
 
     async def score(self,frame,history,generation):
         cfg=self.policy_config;started=time.perf_counter()
@@ -274,7 +277,15 @@ class GameRuntime:
         task["last_key"]=key
         try:
             action=task["navigator"].step(frame)
-            if action:await self.send(action,frame)
+            if hasattr(task["navigator"],"describe"):
+                navigation=task["navigator"].describe()
+                if navigation["revision"]!=task.get("navigation_revision"):
+                    task["navigation_revision"]=navigation["revision"]
+                    self.diagnostic("navigation_path",task_id=task["task_id"],run_id=frame["run_id"],
+                        room_id=frame["room"]["id"],game_frame=frame["game_frame"],**navigation)
+            if action:
+                result=await self.send(action,frame)
+                if hasattr(task["navigator"],"command_feedback"):task["navigator"].command_feedback(frame,action,result or {})
         except ValueError as exc:await self.finish_task("blocked",str(exc))
 
     async def tick(self):
