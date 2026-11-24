@@ -34,6 +34,11 @@ class BridgeServer:
         self._last_key = None
         self._acks = {}
         self.server = None
+        self.control_lease = None
+        self.control_epoch = 0
+
+    def revoke_control(self):
+        self.control_lease=None;self.control_epoch+=1
 
     def _new_recorder(self):
         return SessionRecorder(self.record_root,{"purpose":self.record_purpose,"automatic_boundaries":True})
@@ -68,7 +73,8 @@ class BridgeServer:
                 "recording_written": self.recorder.written if self.recorder else 0,
                 "recording_dropped": self.recorder.dropped if self.recorder else 0,
                 "recording_error": self.recorder.error if self.recorder else None,
-                "last_error": self.last_error}
+                "last_error": self.last_error,"control_leases_supported":True,
+                "control_lease":self.control_lease,"control_epoch":self.control_epoch}
 
     async def start(self):
         self.server = await asyncio.start_server(self._client, self.host, self.port, limit=MAX_MESSAGE_BYTES + 1)
@@ -90,6 +96,7 @@ class BridgeServer:
             if replaced:
                 self.mod_writer.close()
             self.mod_writer, self.hello, is_mod = writer, first, True
+            self.revoke_control()
             self._last_key = None
             self._recent_frames.clear()
             self._room_timeline.reset()
@@ -135,7 +142,9 @@ class BridgeServer:
                         if future and not future.done():
                             future.set_result(msg)
                     elif msg.get("type") == "event":
+                        if msg.get("event")=="control_mode_changed" and msg.get("mode")=="manual":self.revoke_control()
                         if msg.get("event")=="run_started":
+                            self.revoke_control()
                             if self.recorder and self._recording_run is not None:
                                 await self._seal_recording("run_started",reopen=True)
                             self._recording_run=msg.get("run_id")
@@ -154,6 +163,7 @@ class BridgeServer:
             self.last_error = str(exc)
         finally:
             if is_mod and self.mod_writer is writer:
+                self.revoke_control()
                 self.mod_writer = None
                 self._recent_frames.clear()
                 for future in self._acks.values():
@@ -170,6 +180,17 @@ class BridgeServer:
         if not isinstance(payload, dict):
             return {"ok": False, "error": "control payload must be an object"}
         operation = payload.get("command")
+        if operation=="acquire_control":
+            if self.control_lease:return {"ok":False,"error":"another controller owns input"}
+            if not self.latest or not self.mod_writer or self.latest.get("mode")!="manual" or not self.last_received or time.monotonic()-self.last_received>0.2:
+                return {"ok":False,"error":"connect and unpause in manual mode before acquiring control"}
+            if not isinstance(payload.get("owner"),str) or not payload["owner"]:return {"ok":False,"error":"missing owner"}
+            self.control_epoch+=1
+            self.control_lease={"id":uuid.uuid4().hex,"owner":payload["owner"],"epoch":self.control_epoch}
+            return {"ok":True,"lease":dict(self.control_lease)}
+        if operation=="release_control":
+            if self.control_lease and payload.get("lease_id")!=self.control_lease["id"]:return {"ok":False,"error":"lease mismatch"}
+            self.revoke_control();return {"ok":True}
         if operation in {"rotate_recording","stop_recording"}:
             purpose=payload.get("purpose","demonstration")
             completed_purpose=payload.get("completed_purpose")
@@ -205,10 +226,17 @@ class BridgeServer:
         if not self.mod_writer or self.mod_writer.is_closing():
             return {"ok": False, "error": "Isaac mod not connected"}
         try:
+            if operation in {"action","set_mode"}:
+                token=payload.get("lease_id")
+                if token is not None and (not self.control_lease or token!=self.control_lease["id"]):
+                    raise ValueError("control lease expired")
+                if self.control_lease and not (operation=="set_mode" and payload.get("mode")=="manual") and token!=self.control_lease["id"]:
+                    raise ValueError("input belongs to another controller")
             if operation == "set_mode":
                 if payload.get("mode") not in MODES:
                     raise ValueError("invalid mode")
                 command = {"command": "set_mode", "mode": payload["mode"]}
+                if payload["mode"]=="manual":self.revoke_control()
             elif operation == "action":
                 if not self.latest or not self.last_received or time.monotonic() - self.last_received > 0.5:
                     raise ValueError("no fresh game state")

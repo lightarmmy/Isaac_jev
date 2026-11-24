@@ -11,6 +11,9 @@ local previousHeld, itemCache, inventoryCount = {}, {}, -1
 local rawFrame, lastError, drops = nil, "", 0
 local recording, recordingError = false, false
 local controlReason, controlRevision = "initial", 0
+local floorCache, floorCacheAt, floorCacheKey = nil, -1000, ""
+local inventoryCheckedAt = -1000
+local inventoryFingerprint = ""
 
 local function arr(t) return setmetatable(t or {}, {__json_array=true}) end
 local function read(o, k, default)
@@ -116,7 +119,7 @@ local function connect()
     local connected,err=s:connect(HOST,PORT)
     if not connected then s:close();lastError=tostring(err);return end
     s:settimeout(0);sock=s;rx="";tx="";clearControl("reconnected");lastError=""
-    emit({type="hello",client="isaac_mod",mod_version="0.3.3",capture_phase="pre_update",
+    emit({type="hello",client="isaac_mod",mod_version="0.4.1",capture_phase="pre_update",
           repentogon=REPENTOGON~=nil,run_id=runId,logic_hz=30})
     print("[IsaacJev] connected to Python; MANUAL mode")
 end
@@ -210,7 +213,10 @@ local function activeItem(p)
 end
 local function inventory(p)
     local count=p:GetCollectibleCount()
-    if count~=inventoryCount then
+    local fingerprint=tostring(p:GetActiveItem(0))..":"..tostring(p:GetTrinket(0))..":"..tostring(p:GetTrinket(1))..":"..tostring(p:GetCard(0))..":"..tostring(p:GetPill(0))
+    if count~=inventoryCount or fingerprint~=inventoryFingerprint or frameNo()-inventoryCheckedAt>=30 then
+        inventoryFingerprint=fingerprint
+        inventoryCheckedAt=frameNo()
         inventoryCount=count;itemCache=arr()
         local configs=Isaac.GetItemConfig():GetCollectibles()
         for id=1,configs.Size-1 do
@@ -218,6 +224,7 @@ local function inventory(p)
             if n>0 then
                 local item=Isaac.GetItemConfig():GetCollectible(id)
                 itemCache[#itemCache+1]={id=id,count=n,name=itemText(read(item,"Name","")),description=itemText(read(item,"Description","")),
+                                       quality=read(item,"Quality",nil),item_type=read(item,"Type",nil),
                                        name_key=read(item,"Name",""),description_key=read(item,"Description","")}
             end
         end
@@ -225,6 +232,46 @@ local function inventory(p)
     return {coins=p:GetNumCoins(),keys=p:GetNumKeys(),bombs=p:GetNumBombs(),
             trinkets=arr({p:GetTrinket(0),p:GetTrinket(1)}),collectibles=itemCache,
             card=p:GetCard(0),pill_color=p:GetPill(0)}
+end
+local function gridKind(t)
+    local enums=GridEntityType or {}
+    for _,entry in ipairs({{"GRID_STAIRS","stairs"},{"GRID_TRAPDOOR","trapdoor"},{"GRID_TELEPORTER","teleporter"},
+        {"GRID_PRESSURE_PLATE","button"},{"GRID_SPIKES","spikes"},{"GRID_SPIKES_ONOFF","spikes"},
+        {"GRID_FIREPLACE","fire"},{"GRID_TNT","tnt"},{"GRID_PIT","pit"},{"GRID_POOP","poop"},
+        {"GRID_WALL","wall"},{"GRID_DOOR","door"}}) do
+        if enums[entry[1]]~=nil and enums[entry[1]]==t then return entry[2] end
+    end
+    return "grid"
+end
+local function floorData()
+    local level=Game():GetLevel()
+    local dimension=call(level,"GetDimension",0)
+    local key=tostring(level:GetStage())..":"..tostring(level:GetStageType())..":"..tostring(dimension)
+    if floorCache and floorCacheKey==key and frameNo()-floorCacheAt<30 then return floorCache end
+    floorCacheKey=key;floorCacheAt=frameNo()
+    local rooms=arr();local list=call(level,"GetRooms",nil)
+    if list then
+        for i=0,(read(list,"Size",0) or 0)-1 do
+            local d=call(list,"Get",nil,i)
+            if d then
+                local idx=read(d,"SafeGridIndex",read(d,"GridIndex",nil))
+                local dim=call(d,"GetDimension",dimension)
+                local data=read(d,"Data",nil);local links=arr()
+                local allowed=read(d,"AllowedDoors",0) or 0
+                for slot,neighbor in pairs(call(d,"GetNeighboringRooms",{}) or {}) do
+                    if type(slot)=="number" and (allowed & (1<<slot))~=0 then
+                        links[#links+1]={slot=slot,target_index=read(neighbor,"SafeGridIndex",read(neighbor,"GridIndex",nil)),
+                            dimension=call(neighbor,"GetDimension",dim)}
+                    end
+                end
+                rooms[#rooms+1]={index=idx,dimension=dim,type=read(data,"Type",nil),shape=read(data,"Shape",nil),
+                    display_flags=read(d,"DisplayFlags",0),visited=read(d,"VisitedCount",0),clear=read(d,"Clear",false),links=links}
+            end
+        end
+    end
+    floorCache={id=key,stage=level:GetStage(),stage_type=level:GetStageType(),dimension=dimension,
+        curses=call(level,"GetCurses",0),rooms=rooms,refreshed_frame=frameNo()}
+    return floorCache
 end
 local function entityData(e)
     local sprite=call(e,"GetSprite",nil)
@@ -235,10 +282,15 @@ local function entityData(e)
     local bomb=call(e,"ToBomb",nil)
     local pickup=call(e,"ToPickup",nil)
     local effect=call(e,"ToEffect",nil)
-    local kind=n and "enemy" or projectile and "projectile" or tear and "tear"
+    local kind=(e.Type==(EntityType.ENTITY_SLOT or 6)) and "slot" or n and "enemy" or projectile and "projectile" or tear and "tear"
                or laser and "laser" or bomb and "bomb" or pickup and "pickup" or effect and "effect" or "other"
     local flags=call(e,"GetEntityFlags",0)
     local friendly=e:HasEntityFlags(EntityFlag.FLAG_FRIENDLY) or e:HasEntityFlags(EntityFlag.FLAG_CHARM)
+    local config=pickup and e.Variant==100 and Isaac.GetItemConfig():GetCollectible(e.SubType) or nil
+    local blind=call(pickup,"IsBlind",false)
+    local curse=call(Game():GetLevel(),"GetCurses",0)
+    if pickup and e.Variant==100 and LevelCurse and LevelCurse.CURSE_OF_BLIND then blind=blind or (curse & LevelCurse.CURSE_OF_BLIND)~=0 end
+    local spawner=read(e,"SpawnerEntity",nil)
     return {uid=tostring(e.Index)..":"..tostring(e.InitSeed),kind=kind,type=e.Type,variant=e.Variant,subtype=e.SubType,
             position=vec(e.Position),velocity=vec(e.Velocity),size=e.Size,size_multi=vec(e.SizeMulti),
             hp=e.HitPoints,max_hp=e.MaxHitPoints,frame_count=e.FrameCount,
@@ -253,28 +305,40 @@ local function entityData(e)
             laser_radius=read(laser,"Radius",nil),laser_timeout=read(laser,"Timeout",nil),
             bomb_countdown=call(bomb,"GetExplosionCountdown",read(bomb,"ExplosionCountdown",nil)),
             bomb_radius_multiplier=read(bomb,"RadiusMultiplier",nil),
-            pickup_price=read(pickup,"Price",nil),effect_timeout=read(effect,"Timeout",nil)}
+            pickup_price=read(pickup,"Price",nil),pickup_shop=call(pickup,"IsShopItem",false),
+            pickup_options=read(pickup,"OptionsPickupIndex",0),pickup_wait=read(pickup,"Wait",0),
+            pickup_blind=blind,pickup_name=not blind and config and itemText(read(config,"Name","")) or nil,
+            pickup_description=not blind and config and itemText(read(config,"Description","")) or nil,
+            pickup_quality=not blind and read(config,"Quality",nil) or nil,pickup_item_type=not blind and read(config,"Type",nil) or nil,
+            owner_type=read(spawner,"Type",nil),effect_timeout=read(effect,"Timeout",nil)}
 end
 local function roomData(p)
     local r=Game():GetRoom()
     local grid=arr()
+    local cells=arr()
     for i=0,r:GetGridSize()-1 do
+        local pos=r:GetGridPosition(i);cells[#cells+1]=arr({i,pos.X,pos.Y,r:GetGridCollision(i),call(r,"IsPositionInRoom",true,pos,0)})
         local g=r:GetGridEntity(i)
         if g then
             local desc=read(g,"Desc",nil)
             grid[#grid+1]={index=i,position=vec(r:GetGridPosition(i)),type=call(g,"GetType",nil),
                            collision=r:GetGridCollision(i),state=read(g,"State",nil),
-                           variant=read(desc,"Variant",nil)}
+                           variant=read(desc,"Variant",nil),kind=gridKind(call(g,"GetType",nil))}
         end
     end
     local doors=arr()
+    local level=Game():GetLevel()
+    local roomDesc=call(level,"GetCurrentRoomDesc",nil)
+    local neighbors=call(roomDesc,"GetNeighboringRooms",{}) or {}
     for slot=0,7 do
         local d=r:GetDoor(slot)
         if d then doors[#doors+1]={slot=slot,position=vec(d.Position),open=d:IsOpen(),locked=d:IsLocked(),
-                                  target_room_type=d.TargetRoomType} end
+                                  target_room_type=d.TargetRoomType,
+                                  target_room_index=read(neighbors[slot],"SafeGridIndex",read(neighbors[slot],"GridIndex",read(d,"TargetRoomIndex",nil))),
+                                  target_dimension=call(neighbors[slot],"GetDimension",call(level,"GetDimension",0))} end
     end
     return {id=roomId(),type=r:GetType(),shape=r:GetRoomShape(),clear=r:IsClear(),
-            grid_width=r:GetGridWidth(),grid_size=r:GetGridSize(),
+            grid_width=r:GetGridWidth(),grid_size=r:GetGridSize(),navigation_cells=cells,
             top_left=vec(r:GetTopLeftPos()),bottom_right=vec(r:GetBottomRightPos()),grid=grid,doors=doors}
 end
 local function snapshot()
@@ -286,11 +350,11 @@ local function snapshot()
     end
     local held=humanInput(p)
     local currentRoom=roomId()
-    if currentRoom~=lastRoom then command=nil;lastRoom=currentRoom end
+    if currentRoom~=lastRoom then command=nil;lastRoom=currentRoom;floorCache=nil;inventoryCount=-1 end
     sequence=sequence+1
     return {type="frame",protocol_version=VERSION,run_id=runId,seq=sequence,game_frame=frameNo(),
             capture_phase="pre_update",game_time_ms=Isaac.GetTime(),mode=mode,
-            mode_reason=controlReason,control_revision=controlRevision,room=roomData(p),
+            mode_reason=controlReason,control_revision=controlRevision,room=roomData(p),floor=floorData(),planner_schema=1,
             player={position=vec(p.Position),velocity=vec(p.Velocity),size=p.Size,size_multi=vec(p.SizeMulti),
                     type=p:GetPlayerType(),dead=p:IsDead(),can_fly=p.CanFly,controls_enabled=p:AreControlsEnabled(),
                     health={red=p:GetHearts(),max_red=p:GetMaxHearts(),soul=p:GetSoulHearts(),
@@ -298,13 +362,14 @@ local function snapshot()
                     stats={damage=p.Damage,move_speed=p.MoveSpeed,shot_speed=p.ShotSpeed,
                            max_fire_delay=p.MaxFireDelay,tear_height=p.TearHeight,tear_flags=flagData(p.TearFlags)},
                     active=activeItem(p),inventory=inventory(p)},
+            planner_stats={luck=read(p,"Luck",nil),tear_range=read(p,"TearRange",nil)},
             human_input=held,entities=entities,execution=command or {},
             bridge={dropped_frames=drops},supported_player_count=Game():GetNumPlayers()}
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED,function(_,continued)
     runId=runKey()
-    sequence=0;lastRoom=nil;inventoryCount=-1;command=nil;previousHeld={}
+    sequence=0;lastRoom=nil;inventoryCount=-1;inventoryCheckedAt=-1000;floorCache=nil;command=nil;previousHeld={}
     emit({type="event",event="run_started",run_id=runId,continued=continued,game_frame=frameNo()})
 end)
 if ModCallbacks.MC_PRE_UPDATE then
@@ -375,6 +440,7 @@ mod:AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG,function(_,entity,amount,flags,s
           entity_uid=tostring(entity.Index)..":"..tostring(entity.InitSeed),amount=amount,flags=flags})
 end)
 mod:AddCallback(ModCallbacks.MC_USE_ITEM,function(_,id,rng,p,flags,slot,variableData)
+    inventoryCount=-1
     emit({type="event",event="item_used",run_id=runId,game_frame=frameNo(),item_id=id,
           player_uid=p and (tostring(p.Index)..":"..tostring(p.InitSeed)) or nil,
           use_flags=flags,active_slot=slot,variable_data=variableData})

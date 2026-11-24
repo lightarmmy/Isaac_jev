@@ -250,4 +250,24 @@ class LuaModTests(unittest.TestCase):
         self.assertEqual(frame["mode"],"manual")
         self.assertEqual(frame["mode_reason"],"f8")
 
+    def test_planner_exports_floor_links_and_navigation_cells(self):
+        self.lua.execute('''
+        local level=Game():GetLevel(); local room=Game():GetRoom()
+        local neighbor={SafeGridIndex=16,GridIndex=16,DisplayFlags=0,VisitedCount=0,Clear=false,AllowedDoors=4,Data={Type=4,Shape=1},GetDimension=function()return 0 end,GetNeighboringRooms=function()return {} end}
+        local current={SafeGridIndex=17,GridIndex=17,DisplayFlags=1,VisitedCount=1,Clear=true,AllowedDoors=1,Data={Type=1,Shape=1},GetDimension=function()return 0 end,GetNeighboringRooms=function()return {[0]=neighbor} end}
+        level.GetRooms=function()return {Size=2,Get=function(self,i)return i==0 and current or neighbor end} end
+        level.GetCurrentRoomDesc=function()return current end;level.GetDimension=function()return 0 end
+        room.GetGridSize=function()return 9 end;room.GetGridWidth=function()return 3 end
+        room.GetGridPosition=function(self,i)return {X=80+(i%3)*40,Y=80+math.floor(i/3)*40} end
+        room.GetGridEntity=function()return nil end;room.GetGridCollision=function()return 0 end
+        room.GetDoor=function(self,slot) if slot==0 then return {Position={X=60,Y=120},TargetRoomType=4,IsOpen=function()return true end,IsLocked=function()return false end} end end
+        ''')
+        self.step();self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertEqual(frame["planner_schema"],1)
+        self.assertEqual(len(frame["room"]["navigation_cells"]),9)
+        self.assertEqual(frame["room"]["navigation_cells"][0],[0,80,80,0,True])
+        self.assertEqual(frame["room"]["doors"][0]["target_room_index"],16)
+        self.assertEqual(frame["floor"]["rooms"][0]["links"][0]["target_index"],16)
+
 if __name__=="__main__":unittest.main()

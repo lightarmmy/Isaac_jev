@@ -2,7 +2,7 @@
 
 非视觉以撒游戏桥、个人示范采集和冻结 Qwen3.5-2B 的战斗决策头。
 
-高层路线/道具决策计划交给 DeepSeek API；当前实现首先打通房间战斗数据与控制链路。
+高层路线/道具决策由 dsh 的 `isaac-play` 技能通过本地游戏工具执行，战斗交给 L40S 上的 Qwen-jev。首期支持连续走房间、拾取普通掉落、拿宝箱房道具和查看商店；技能安装与使用见 [DSH_SKILL.md](docs/DSH_SKILL.md)。
 
 当前训练版使用最近 8 个弹幕 + 0.1/0.3/0.6 秒历史、文本/数值分别投影融合，以及独立移动/射击输出。本轮移除主动道具上下文、使用房间及主动输出参数。训练使用 positive/negative/unknown，部署固定 positive；不同头版本的权重不兼容。最新实现和结果见 [v003 训练与测速报告](docs/TRAINING_V003.md)，输入/标签边界见 [结果条件说明](docs/CONDITIONED_POLICY.md)。
 
@@ -83,6 +83,7 @@ python run.py infer artifacts/combat-v001 --mode shadow
 - [当前接入步骤和原游戏保护](docs/CONNECT_ISAAC.md)
 - [原始数据与模型输入契约](docs/DATA_CONTRACT.md)
 - [v004 训练、动作复制修正与验证](docs/TRAINING_V004.md)
+- [dsh 的 isaac-play 技能与工具使用](docs/DSH_SKILL.md)
 - [完整层级架构](docs/isaac_hierarchical_pipeline.md)
 - [以撒战斗设计](docs/isaac_jev_design.md)
 - [TerraBlind 源码核对](docs/terrablind_review.md)

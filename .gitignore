@@ -12,3 +12,7 @@ datasets/
 *.npz
 *.pt
 *.log
+skills/isaac-play/scripts/vendor/
+skills/isaac-play/connection.json
+skills/isaac-play/manifest.json
+skills/isaac-play/assets/isaac_jev_bridge/
