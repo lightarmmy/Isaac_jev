@@ -1,0 +1,6 @@
+{
+  "checkpoint": "artifacts/combat-v004",
+  "warmup_dataset": "datasets/combat-v004",
+  "cpu_threads": 1,
+  "pad_multiple": 512
+}

@@ -35,7 +35,7 @@ async def serve(args):
     import torch
     torch.set_num_threads(args.cpu_threads);torch.set_num_interop_threads(1)
     from safetensors.torch import load_file
-    from isaac_jev.features import contract
+    from isaac_jev.features import contract_for
     from isaac_jev.model import FrozenQwen,CombatHead
     from isaac_jev.protocol import MAX_MESSAGE_BYTES
     checkpoint=(ROOT/args.checkpoint).resolve()
@@ -43,7 +43,7 @@ async def serve(args):
         path=(checkpoint/name).resolve()
         if path.parent!=checkpoint or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:raise ValueError("Checkpoint checksum mismatch")
     cfg=json.loads((checkpoint/"policy_config.json").read_text())
-    if any(cfg.get(k)!=v for k,v in contract().items()):raise ValueError("Checkpoint/runtime mismatch")
+    if any(cfg.get(k)!=v for k,v in contract_for(cfg).items()):raise ValueError("Checkpoint/runtime mismatch")
     if cfg.get("active_head_present") or cfg.get("active_context"):raise ValueError("Deploy the movement/shooting-only checkpoint")
     if args.pad_multiple and cfg["max_length"]%args.pad_multiple:raise ValueError("Pad multiple must divide token budget")
     encoder=FrozenQwen(cfg["model"],cfg["revision"],"cuda",cfg["dtype"],cfg["max_length"])
@@ -64,14 +64,14 @@ async def serve(args):
     rows_path=ROOT/args.warmup_dataset/"samples.jsonl"
     if rows_path.exists():
         rows=[json.loads(line) for line in rows_path.read_text().splitlines()]
-        ordered=sorted(rows,key=lambda row:len(encoder.tokenizer.encode(row["deployment_prompt"])))
+        ordered=sorted(rows,key=lambda row:len(row["deployment_prompt"]))
         for row in (ordered[0],ordered[len(ordered)//2],ordered[-1]):
             with torch.inference_mode():encoder.encode([row["deployment_prompt"]],pad_to_multiple_of=args.pad_multiple or None)
     torch.cuda.synchronize()
     def package_version(name):
         try:return importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:return None
-    backend={"gpu":torch.cuda.get_device_name(0),"torch":torch.__version__,"cpu_threads":torch.get_num_threads(),
+    backend={"checkpoint":checkpoint.name,"gpu":torch.cuda.get_device_name(0),"torch":torch.__version__,"cpu_threads":torch.get_num_threads(),
         "interop_threads":torch.get_num_interop_threads(),"flash_linear_attention":package_version("flash-linear-attention"),
         "causal_conv1d":package_version("causal-conv1d"),"pad_multiple":args.pad_multiple,
         "max_tokens":cfg["max_length"],"dtype":cfg["dtype"],"warmup_lengths":warm_lengths}

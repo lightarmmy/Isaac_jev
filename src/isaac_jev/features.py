@@ -32,7 +32,11 @@ def controls(frame):
         action, active = label_from_input(frame.get("human_input", {}))
     else:
         execution = frame.get("execution", {})
-        action, active = execution.get("action_id", 0), execution.get("use_active", False)
+        if "action_id" in execution:
+            action, active = execution["action_id"], execution.get("use_active", False)
+        else:
+            # AI mode also permits human input when no policy command is active.
+            action, active = label_from_input(frame.get("human_input", {}))
     return int(action), bool(active)
 
 
@@ -75,7 +79,7 @@ def history_summary(frame, history):
     return summaries
 
 
-def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, history_facts=None, include_active=True) -> tuple[str, list[float], list[str]]:
+def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, history_facts=None, include_active=True, include_controls=True) -> tuple[str, list[float], list[str]]:
     if condition not in CONDITIONS:
         raise ValueError("Unknown outcome condition")
     p, room = frame["player"], frame["room"]
@@ -175,15 +179,29 @@ def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, 
         facts.pop("active_item")
         facts["previous_controls"].pop("use_active")
         facts["history"]=[{k:v for k,v in h.items() if k!="use_active"} for h in facts["history"]]
+    if not include_controls:
+        facts.pop("previous_controls")
+        facts["history"]=[{k:v for k,v in h.items() if k not in {"move","shoot","use_active"}} for h in facts["history"]]
+        for i,name in enumerate(names):
+            if name.startswith("previous_"):values[i]=0.0
     rules=RULES if include_active else RULES+"\nActive items are disabled in this policy; choose only movement and shooting."
     prompt=rules+"\nCurrent state:\n"+json.dumps(facts,ensure_ascii=False,separators=(",",":"),allow_nan=False)
     prompt += "\nDesired outcome condition: " + condition + ".\nChoose combat controls."
     return prompt,values,names
 
-def contract():
-    return {"feature_version":FEATURE_VERSION,"action_version":ACTION_VERSION,"rules_sha256":RULES_SHA256,
+def contract(action_lag_frames=1,control_context=True):
+    if type(action_lag_frames) is not int or not 1<=action_lag_frames<=6:raise ValueError("Action lag must be 1..6 frames")
+    if type(control_context) is not bool:raise ValueError("control_context must be boolean")
+    result={"feature_version":FEATURE_VERSION if control_context else "combat-state-history-no-controls-v4",
+            "action_version":ACTION_VERSION,"rules_sha256":RULES_SHA256,
             "raw_capture_phase":"pre_update","movement_risk_horizon_frames":6,"candidate_endpoint_frames":3,
-            "observation_to_action_frame_lag":1,"active_labels":"human_edge_and_confirmed_primary_item_use",
+            "observation_to_action_frame_lag":action_lag_frames,"active_labels":"human_edge_and_confirmed_primary_item_use",
             "head_architecture":"two-tower-factorized-v2", "projectile_limit":PROJECTILE_LIMIT,
             "history_offsets_frames":list(HISTORY_OFFSETS), "outcome_version":"observed-damage-window-v1",
             "deployment_condition":DEPLOYMENT_CONDITION, "normalization":"fixed-physical-scales-v1"}
+    if not control_context:result["control_context"]=False
+    return result
+
+
+def contract_for(config):
+    return contract(config.get("observation_to_action_frame_lag",1),config.get("control_context",True))

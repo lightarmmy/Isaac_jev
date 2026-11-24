@@ -82,6 +82,7 @@ python run.py infer artifacts/combat-v001 --mode shadow
 
 - [当前接入步骤和原游戏保护](docs/CONNECT_ISAAC.md)
 - [原始数据与模型输入契约](docs/DATA_CONTRACT.md)
+- [v004 训练、动作复制修正与验证](docs/TRAINING_V004.md)
 - [完整层级架构](docs/isaac_hierarchical_pipeline.md)
 - [以撒战斗设计](docs/isaac_jev_design.md)
 - [TerraBlind 源码核对](docs/terrablind_review.md)

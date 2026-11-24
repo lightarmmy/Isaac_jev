@@ -1,0 +1,326 @@
+{
+  "source_run": "isaac-seed:3962258900",
+  "source_room": "1:0:97",
+  "source_frame": 1259,
+  "method": "Counterfactual previous controls only; physical telemetry and history unchanged. No actions sent to game.",
+  "results": [
+    {
+      "previous_action": 0,
+      "predicted_action": 0,
+      "move": "stay",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 1,
+      "predicted_action": 1,
+      "move": "stay",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 2,
+      "predicted_action": 2,
+      "move": "stay",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 3,
+      "predicted_action": 3,
+      "move": "stay",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 4,
+      "predicted_action": 4,
+      "move": "stay",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 5,
+      "predicted_action": 5,
+      "move": "up",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 6,
+      "predicted_action": 6,
+      "move": "up",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 7,
+      "predicted_action": 7,
+      "move": "up",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 8,
+      "predicted_action": 8,
+      "move": "up",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 9,
+      "predicted_action": 9,
+      "move": "up",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 10,
+      "predicted_action": 10,
+      "move": "down",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 11,
+      "predicted_action": 11,
+      "move": "down",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 12,
+      "predicted_action": 12,
+      "move": "down",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 13,
+      "predicted_action": 13,
+      "move": "down",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 14,
+      "predicted_action": 14,
+      "move": "down",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 15,
+      "predicted_action": 15,
+      "move": "left",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 16,
+      "predicted_action": 16,
+      "move": "left",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 17,
+      "predicted_action": 17,
+      "move": "left",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 18,
+      "predicted_action": 18,
+      "move": "left",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 19,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 20,
+      "predicted_action": 20,
+      "move": "right",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 21,
+      "predicted_action": 21,
+      "move": "right",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 22,
+      "predicted_action": 22,
+      "move": "right",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 23,
+      "predicted_action": 23,
+      "move": "right",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 24,
+      "predicted_action": 24,
+      "move": "right",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 25,
+      "predicted_action": 25,
+      "move": "up_left",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 26,
+      "predicted_action": 26,
+      "move": "up_left",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 27,
+      "predicted_action": 27,
+      "move": "up_left",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 28,
+      "predicted_action": 28,
+      "move": "up_left",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 29,
+      "predicted_action": 29,
+      "move": "up_left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 30,
+      "predicted_action": 30,
+      "move": "up_right",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 31,
+      "predicted_action": 31,
+      "move": "up_right",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 32,
+      "predicted_action": 32,
+      "move": "up_right",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 33,
+      "predicted_action": 33,
+      "move": "up_right",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 34,
+      "predicted_action": 34,
+      "move": "up_right",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 35,
+      "predicted_action": 35,
+      "move": "down_left",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 36,
+      "predicted_action": 36,
+      "move": "down_left",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 37,
+      "predicted_action": 37,
+      "move": "down_left",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 38,
+      "predicted_action": 38,
+      "move": "down_left",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 39,
+      "predicted_action": 39,
+      "move": "down_left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 40,
+      "predicted_action": 40,
+      "move": "down_right",
+      "shoot": "none"
+    },
+    {
+      "previous_action": 41,
+      "predicted_action": 41,
+      "move": "down_right",
+      "shoot": "up"
+    },
+    {
+      "previous_action": 42,
+      "predicted_action": 42,
+      "move": "down_right",
+      "shoot": "down"
+    },
+    {
+      "previous_action": 43,
+      "predicted_action": 43,
+      "move": "down_right",
+      "shoot": "left"
+    },
+    {
+      "previous_action": 44,
+      "predicted_action": 44,
+      "move": "down_right",
+      "shoot": "right"
+    }
+  ],
+  "same_previous_action": 45,
+  "prediction_counts": {
+    "0": 1,
+    "1": 1,
+    "2": 1,
+    "3": 1,
+    "4": 1,
+    "5": 1,
+    "6": 1,
+    "7": 1,
+    "8": 1,
+    "9": 1,
+    "10": 1,
+    "11": 1,
+    "12": 1,
+    "13": 1,
+    "14": 1,
+    "15": 1,
+    "16": 1,
+    "17": 1,
+    "18": 1,
+    "19": 1,
+    "20": 1,
+    "21": 1,
+    "22": 1,
+    "23": 1,
+    "24": 1,
+    "25": 1,
+    "26": 1,
+    "27": 1,
+    "28": 1,
+    "29": 1,
+    "30": 1,
+    "31": 1,
+    "32": 1,
+    "33": 1,
+    "34": 1,
+    "35": 1,
+    "36": 1,
+    "37": 1,
+    "38": 1,
+    "39": 1,
+    "40": 1,
+    "41": 1,
+    "42": 1,
+    "43": 1,
+    "44": 1
+  }
+}

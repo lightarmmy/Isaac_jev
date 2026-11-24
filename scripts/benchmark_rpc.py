@@ -42,6 +42,12 @@ async def benchmark(args):
             return
         description,_=await request({"command":"describe"})
         cfg=description["config"];report["backend"]=description["backend"]
+        metadata_path=ROOT/args.dataset/"dataset.json"
+        if metadata_path.exists():
+            metadata=json.loads(metadata_path.read_text())
+            for key in ("feature_version","rules_sha256","head_architecture","observation_to_action_frame_lag"):
+                if metadata.get(key)!=cfg.get(key):raise ValueError("Benchmark input/server contract mismatch: "+key)
+            if metadata.get("control_context",True)!=cfg.get("control_context",True):raise ValueError("Benchmark control context mismatch")
         rows=[json.loads(line) for line in (ROOT/args.dataset/"samples.jsonl").read_text(encoding="utf-8").splitlines()]
         ordered=sorted(rows,key=lambda r:len(r["deployment_prompt"]))
         def payload_for(row):

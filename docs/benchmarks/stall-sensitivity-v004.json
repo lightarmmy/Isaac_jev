@@ -1,0 +1,282 @@
+{
+  "source_run": "isaac-seed:3962258900",
+  "source_room": "1:0:97",
+  "source_frame": 1259,
+  "method": "Counterfactual previous controls only; physical telemetry and history unchanged. No actions sent to game.",
+  "results": [
+    {
+      "previous_action": 0,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 1,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 2,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 3,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 4,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 5,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 6,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 7,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 8,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 9,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 10,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 11,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 12,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 13,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 14,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 15,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 16,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 17,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 18,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 19,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 20,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 21,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 22,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 23,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 24,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 25,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 26,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 27,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 28,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 29,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 30,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 31,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 32,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 33,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 34,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 35,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 36,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 37,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 38,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 39,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 40,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 41,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 42,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 43,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    },
+    {
+      "previous_action": 44,
+      "predicted_action": 19,
+      "move": "left",
+      "shoot": "right"
+    }
+  ],
+  "same_previous_action": 1,
+  "prediction_counts": {
+    "19": 45
+  }
+}

@@ -15,14 +15,19 @@ os.environ["TRITON_CACHE_DIR"]=str(ROOT/".cache/triton")
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument("--pad-multiple",type=int,default=512)
+    parser.add_argument("--checkpoint",default="artifacts/combat-v003")
+    parser.add_argument("--dataset",default="datasets/combat-v003")
+    parser.add_argument("--batch-size",type=int,default=4)
+    parser.add_argument("--output",default=".local/accelerated-padded-equivalence.json")
     args=parser.parse_args()
     import torch,numpy as np
     from safetensors.torch import load_file
     from isaac_jev.model import FrozenQwen,CombatHead
     torch.set_num_threads(1)
-    root=ROOT/"artifacts/combat-v003"
+    if args.batch_size<1:parser.error("batch-size must be positive")
+    root=ROOT/args.checkpoint
     cfg=json.loads((root/"policy_config.json").read_text())
-    dataset=ROOT/"datasets/combat-v003/samples.jsonl"
+    dataset=ROOT/args.dataset/"samples.jsonl"
     assert hashlib.sha256(dataset.read_bytes()).hexdigest()==cfg["dataset_sha256"]
     rows=[json.loads(l) for l in dataset.read_text().splitlines()]
     cache=np.load(root/"frozen_features.npz")
@@ -38,8 +43,8 @@ def main():
             "pad_multiple":args.pad_multiple,
             "results":[]}
     with torch.no_grad():
-        for start in range(0,len(selected),4):
-            batch=selected[start:start+4]
+        for start in range(0,len(selected),args.batch_size):
+            batch=selected[start:start+args.batch_size]
             accelerated=encoder.encode([rows[i]["deployment_prompt"] for i in batch],pad_to_multiple_of=args.pad_multiple or None)
             original=torch.tensor(cache["deployment_embedding"][batch],device="cuda").float()
             numeric=(torch.tensor([rows[i]["deployment_numeric"] for i in batch],device="cuda")-mean)/std
@@ -52,7 +57,7 @@ def main():
                     "same_action":bool(old_move[j].argmax()==new_move[j].argmax() and old_shoot[j].argmax()==new_shoot[j].argmax())})
     report["minimum_cosine"]=min(r["cosine"] for r in report["results"])
     report["same_action_samples"]=sum(r["same_action"] for r in report["results"])
-    (ROOT/".local/accelerated-padded-equivalence.json").write_text(json.dumps(report,indent=2))
+    (ROOT/args.output).write_text(json.dumps(report,indent=2))
     print(json.dumps({k:v for k,v in report.items() if k!="results"},indent=2),flush=True)
 
 

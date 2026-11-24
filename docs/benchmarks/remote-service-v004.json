@@ -1,0 +1,293 @@
+{
+  "transport": "persistent TCP through SSH local forwarding",
+  "rtt": {
+    "0": {
+      "samples": 40,
+      "median_ms": 3.155,
+      "p95_ms": 4.526,
+      "min_ms": 2.6,
+      "max_ms": 6.959
+    },
+    "4096": {
+      "samples": 40,
+      "median_ms": 4.956,
+      "p95_ms": 9.226,
+      "min_ms": 3.202,
+      "max_ms": 9.428
+    },
+    "16384": {
+      "samples": 40,
+      "median_ms": 5.014,
+      "p95_ms": 8.55,
+      "min_ms": 2.832,
+      "max_ms": 11.55
+    }
+  },
+  "policy": [
+    {
+      "case": "short",
+      "tokens": 815,
+      "first_response_ms": 55.942,
+      "request_bytes": 4515,
+      "total": {
+        "samples": 25,
+        "median_ms": 54.656,
+        "p95_ms": 58.729,
+        "min_ms": 53.313,
+        "max_ms": 58.774
+      },
+      "model": {
+        "samples": 25,
+        "median_ms": 48.937,
+        "p95_ms": 49.894,
+        "min_ms": 48.495,
+        "max_ms": 50.095
+      },
+      "transport_and_handler": {
+        "samples": 25,
+        "median_ms": 5.636,
+        "p95_ms": 9.186,
+        "min_ms": 4.7,
+        "max_ms": 10.17
+      },
+      "within_200ms_total": true
+    },
+    {
+      "case": "median",
+      "tokens": 1298,
+      "first_response_ms": 56.419,
+      "request_bytes": 5964,
+      "total": {
+        "samples": 25,
+        "median_ms": 56.812,
+        "p95_ms": 62.426,
+        "min_ms": 55.417,
+        "max_ms": 62.772
+      },
+      "model": {
+        "samples": 25,
+        "median_ms": 50.102,
+        "p95_ms": 52.797,
+        "min_ms": 49.674,
+        "max_ms": 52.895
+      },
+      "transport_and_handler": {
+        "samples": 25,
+        "median_ms": 6.377,
+        "p95_ms": 9.531,
+        "min_ms": 5.494,
+        "max_ms": 9.975
+      },
+      "within_200ms_total": true
+    },
+    {
+      "case": "long",
+      "tokens": 2382,
+      "first_response_ms": 79.998,
+      "request_bytes": 8860,
+      "total": {
+        "samples": 25,
+        "median_ms": 80.37,
+        "p95_ms": 84.788,
+        "min_ms": 78.871,
+        "max_ms": 85.54
+      },
+      "model": {
+        "samples": 25,
+        "median_ms": 71.903,
+        "p95_ms": 72.446,
+        "min_ms": 71.301,
+        "max_ms": 72.679
+      },
+      "transport_and_handler": {
+        "samples": 25,
+        "median_ms": 8.393,
+        "p95_ms": 13.011,
+        "min_ms": 7.244,
+        "max_ms": 13.963
+      },
+      "within_200ms_total": true
+    }
+  ],
+  "backend": {
+    "checkpoint": "combat-v004",
+    "gpu": "NVIDIA L40S",
+    "torch": "2.6.0+cu124",
+    "cpu_threads": 1,
+    "interop_threads": 1,
+    "flash_linear_attention": "0.4.0",
+    "causal_conv1d": null,
+    "pad_multiple": 512,
+    "max_tokens": 3072,
+    "dtype": "bfloat16",
+    "warmup_lengths": [
+      512,
+      1024,
+      1536,
+      2048,
+      2560,
+      3072
+    ]
+  },
+  "mixed_lengths": {
+    "samples": 30,
+    "median_ms": 57.317,
+    "p95_ms": 61.135,
+    "min_ms": 55.421,
+    "max_ms": 79.463,
+    "results": [
+      {
+        "tokens": 815,
+        "total_ms": 57.479,
+        "model_ms": 51.447
+      },
+      {
+        "tokens": 1129,
+        "total_ms": 55.571,
+        "model_ms": 50.038
+      },
+      {
+        "tokens": 1148,
+        "total_ms": 56.455,
+        "model_ms": 50.474
+      },
+      {
+        "tokens": 1177,
+        "total_ms": 58.822,
+        "model_ms": 52.617
+      },
+      {
+        "tokens": 1181,
+        "total_ms": 56.58,
+        "model_ms": 50.171
+      },
+      {
+        "tokens": 1203,
+        "total_ms": 57.949,
+        "model_ms": 51.928
+      },
+      {
+        "tokens": 1202,
+        "total_ms": 55.747,
+        "model_ms": 49.366
+      },
+      {
+        "tokens": 1228,
+        "total_ms": 57.314,
+        "model_ms": 51.61
+      },
+      {
+        "tokens": 1236,
+        "total_ms": 55.448,
+        "model_ms": 49.41
+      },
+      {
+        "tokens": 1279,
+        "total_ms": 57.579,
+        "model_ms": 51.623
+      },
+      {
+        "tokens": 1270,
+        "total_ms": 55.421,
+        "model_ms": 49.746
+      },
+      {
+        "tokens": 1291,
+        "total_ms": 55.713,
+        "model_ms": 49.342
+      },
+      {
+        "tokens": 1304,
+        "total_ms": 58.533,
+        "model_ms": 51.469
+      },
+      {
+        "tokens": 1330,
+        "total_ms": 56.325,
+        "model_ms": 49.584
+      },
+      {
+        "tokens": 1307,
+        "total_ms": 61.135,
+        "model_ms": 52.141
+      },
+      {
+        "tokens": 1298,
+        "total_ms": 55.469,
+        "model_ms": 49.533
+      },
+      {
+        "tokens": 1315,
+        "total_ms": 59.046,
+        "model_ms": 52.285
+      },
+      {
+        "tokens": 1334,
+        "total_ms": 57.384,
+        "model_ms": 50.544
+      },
+      {
+        "tokens": 1331,
+        "total_ms": 57.742,
+        "model_ms": 52.034
+      },
+      {
+        "tokens": 1342,
+        "total_ms": 59.703,
+        "model_ms": 49.495
+      },
+      {
+        "tokens": 1352,
+        "total_ms": 56.075,
+        "model_ms": 49.599
+      },
+      {
+        "tokens": 1351,
+        "total_ms": 58.144,
+        "model_ms": 49.395
+      },
+      {
+        "tokens": 1366,
+        "total_ms": 55.514,
+        "model_ms": 49.379
+      },
+      {
+        "tokens": 1368,
+        "total_ms": 55.672,
+        "model_ms": 49.399
+      },
+      {
+        "tokens": 1379,
+        "total_ms": 55.694,
+        "model_ms": 49.206
+      },
+      {
+        "tokens": 1434,
+        "total_ms": 59.656,
+        "model_ms": 52.225
+      },
+      {
+        "tokens": 1485,
+        "total_ms": 56.504,
+        "model_ms": 49.741
+      },
+      {
+        "tokens": 1596,
+        "total_ms": 57.32,
+        "model_ms": 51.381
+      },
+      {
+        "tokens": 1750,
+        "total_ms": 58.749,
+        "model_ms": 52.303
+      },
+      {
+        "tokens": 2382,
+        "total_ms": 79.463,
+        "model_ms": 71.251
+      }
+    ],
+    "within_200ms_total": true
+  },
+  "scope": "Prepared policy inputs through response; telemetry, feature construction and game execution excluded"
+}

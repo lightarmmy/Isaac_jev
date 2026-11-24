@@ -27,7 +27,8 @@ def main():
     os.environ["TRANSFORMERS_OFFLINE"]="1"
     import torch
     from safetensors.torch import load_file
-    from isaac_jev.features import contract
+    torch.set_num_threads(1)
+    from isaac_jev.features import contract_for
     from isaac_jev.model import FrozenQwen,CombatHead
     if not torch.cuda.is_available():raise RuntimeError("Install CUDA Torch in the project venv first")
     checkpoint=ROOT/args.checkpoint
@@ -36,7 +37,7 @@ def main():
         if path.parent!=checkpoint.resolve() or hashlib.sha256(path.read_bytes()).hexdigest()!=digest:
             raise ValueError("Checkpoint manifest failed")
     cfg=json.loads((checkpoint/"policy_config.json").read_text())
-    if any(cfg.get(k)!=v for k,v in contract().items()):raise ValueError("Checkpoint contract mismatch")
+    if any(cfg.get(k)!=v for k,v in contract_for(cfg).items()):raise ValueError("Checkpoint contract mismatch")
     rows=[json.loads(line) for line in (ROOT/args.dataset/"samples.jsonl").read_text(encoding="utf-8").splitlines()]
     encoder=FrozenQwen(cfg["model"],cfg["revision"],"cuda",cfg["dtype"],cfg["max_length"])
     head=CombatHead(cfg["embedding_size"],cfg["numeric_size"],cfg["head_hidden_size"],active_enabled=cfg.get("active_head_present",True)).cuda().eval()

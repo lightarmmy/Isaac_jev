@@ -4,7 +4,7 @@ import json
 import time
 from .actions import Action
 from .bridge import request_control
-from .features import contract, policy_observation
+from .features import contract_for, policy_observation
 from .protocol import MAX_MESSAGE_BYTES
 from .rooms import combat_active
 
@@ -49,7 +49,7 @@ class PolicyClient:
 
 def validate_description(reply):
     cfg=reply.get("config")
-    if not isinstance(cfg,dict) or any(cfg.get(k)!=v for k,v in contract().items()):
+    if not isinstance(cfg,dict) or any(cfg.get(k)!=v for k,v in contract_for(cfg).items()):
         raise ValueError("Server/local rules or feature contract mismatch; update both sides")
     if cfg.get("active_head_present") or cfg.get("active_context") or cfg.get("active_head_trained"):
         raise ValueError("This remote client supports the movement/shooting policy with active items disabled")
@@ -89,7 +89,8 @@ async def remote_infer(args):
                 await asyncio.sleep(0.5)
         cfg=validate_description(description)
         print(json.dumps({"policy_ready":True,"backend":description["backend"],"mode":args.mode,
-                          "condition":cfg["deployment_condition"],"local_model_loaded":False}),flush=True)
+                          "condition":cfg["deployment_condition"],"control_context":cfg.get("control_context",True),
+                          "observation_lag_frames":cfg["observation_to_action_frame_lag"],"local_model_loaded":False}),flush=True)
         while True:
             if running_since is not None and args.max_seconds is not None and time.monotonic()-running_since>=args.max_seconds:
                 print("Timed inference completed.",flush=True);break
@@ -125,7 +126,7 @@ async def remote_infer(args):
             if "policy_history" not in reply:raise RuntimeError("Bridge needs v3 history support")
             started=time.perf_counter()
             prompt,numeric,names=policy_observation(frame,condition=cfg["deployment_condition"],
-                history_facts=reply["policy_history"],include_active=False)
+                history_facts=reply["policy_history"],include_active=False,include_controls=cfg.get("control_context",True))
             if names!=cfg["numeric_names"]:raise ValueError("Numeric feature order mismatch")
             observation={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"game_frame":frame["game_frame"]}
             prediction=await client.request({"command":"predict","prompt":prompt,"numeric":numeric,
@@ -138,9 +139,11 @@ async def remote_infer(args):
                 result={"ok":False,"error":"prediction exceeded 200ms observation deadline"}
             else:result=await request_control(action.as_command(frame),port=args.port)
             print(json.dumps({"frame":key,"action":action.action_id,"mode":args.mode,
+                "move_id":prediction["move_id"],"shoot_id":prediction["shoot_id"],
                 "tokens":prediction.get("tokens"),"model_ms":prediction["model_ms"],
                 "response_ms":round(response_ms,2),"command_accepted":result.get("ok"),
-                "control_injected":args.mode=="ai" and bool(result.get("ok")),"error":result.get("error")}),flush=True)
+                "control_injected":args.mode=="ai" and bool(result.get("ok")),
+                "error":result.get("error") or (result.get("ack",{}).get("reason") if not result.get("ok") else None)}),flush=True)
     finally:
         await client.close()
         if mode_requested:

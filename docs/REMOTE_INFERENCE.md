@@ -1,6 +1,6 @@
 # L40S 常驻推理
 
-2026-11-24：使用服务器 `/xufanghui/isaac-jev/artifacts/combat-v003`，电脑只运行游戏桥接和远程客户端。以后只同步代码、输入契约和报告，checkpoint 留在服务器；本机已有的历史模型文件无需删除。
+2026-11-24：当前默认模型已更新为服务器 `/xufanghui/isaac-jev/artifacts/combat-v004`，由 `configs/remote_policy.json` 指定。它修正 v003 照抄前一次动作导致原地不动的问题，保留物理历史并按执行延迟对齐，详见 [v004 训练和验证](TRAINING_V004.md)。电脑只运行游戏桥接和远程客户端，checkpoint 留在服务器；本机已有历史模型无需删除。下方加速对照表为 v003 的历史结果，v004 最新总响应约 55–80 ms。
 
 ## 为什么原来的 L40S 比 4060 慢
 
@@ -66,7 +66,7 @@ tail -f .local/policy-service.log
 重新测速，无需 checkpoint 或本地 tokenizer：
 
 ```powershell
-.venv\Scripts\python.exe scripts/benchmark_rpc.py --samples 25 --mixed-samples 30 --output .local/remote-service-benchmark-v003.json
+.venv\Scripts\python.exe scripts/benchmark_rpc.py --dataset .local/v004-review/benchmark --samples 25 --mixed-samples 30 --output .local/remote-service-benchmark-v004.json
 ```
 
 需要停止模型服务以释放 GPU 时，通过仍打开的隧道发送 shutdown：

@@ -63,11 +63,12 @@ def damage_evidence(segment, callbacks):
     return evidence
 
 
-def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OUTCOME_WINDOW):
-    """Assess a trajectory after the next-frame action, without blaming a single keypress."""
+def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OUTCOME_WINDOW, action_lag_frames=1):
+    """Assess a trajectory after the aligned action, without blaming a single keypress."""
     if not 1 <= window_frames <= 150:
         raise ValueError("Outcome window must be 1..150 logic frames")
-    action_index = observation_index + 1
+    if type(action_lag_frames) is not int or not 1<=action_lag_frames<=6:raise ValueError("Action lag must be 1..6 frames")
+    action_index = observation_index + action_lag_frames
     label = {"label": "unknown", "weight": 0.25, "window_frames": window_frames,
              "damage_after_action_frames": None, "reason": "incomplete_future_window",
              "causal_claim": False}

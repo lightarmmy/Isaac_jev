@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 from collections import Counter
 from .actions import Action,ACTION_VERSION,action_map,label_from_input
-from .features import contract,policy_observation,HISTORY_OFFSETS,CONDITIONS,DEPLOYMENT_CONDITION
+from .features import contract,contract_for,controls,policy_observation,HISTORY_OFFSETS,CONDITIONS,DEPLOYMENT_CONDITION
 from .outcomes import segment_frames,collect_player_damage,damage_evidence,label_outcome,event_key
 from .recording import iter_messages
 from .bridge import request_control
@@ -29,7 +29,8 @@ def imitation_baselines(rows,train_ids,evaluate_ids):
     for index in evaluate_ids:
         row=rows[index]
         values=dict(zip(row["numeric_names"],row["numeric"]))
-        if "previous_action" in values:previous=round(values["previous_action"]*44)
+        if "previous_action_label" in row:previous=row["previous_action_label"]
+        elif "previous_action" in values:previous=round(values["previous_action"]*44)
         else:
             previous=max(range(9),key=lambda i:values[f"previous_move_{i}"])*5+max(range(5),key=lambda i:values[f"previous_shoot_{i}"])
         repeated+=int(previous==row["action_label"])
@@ -40,7 +41,15 @@ def imitation_baselines(rows,train_ids,evaluate_ids):
             "repeat_previous_shoot_accuracy":shoot_repeated/len(evaluate_ids),
             "training_majority_action_accuracy":sum(rows[i]["action_label"]==majority for i in evaluate_ids)/len(evaluate_ids)}
 
-def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,outcome_window_frames=30,exclude_active_items=False):
+
+def previous_action_label(row):
+    if "previous_action_label" in row:return row["previous_action_label"]
+    values=dict(zip(row["numeric_names"],row["numeric"]))
+    return max(range(9),key=lambda i:values[f"previous_move_{i}"])*5+max(range(5),key=lambda i:values[f"previous_shoot_{i}"])
+
+def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,outcome_window_frames=30,exclude_active_items=False,action_lag_frames=1,control_context=True):
+    profile=contract(action_lag_frames,control_context)
+    if action_lag_frames!=1 and not exclude_active_items:raise ValueError("Delayed action labels currently require active items disabled")
     if stride<1:raise ValueError("stride must be positive")
     if not 1<=outcome_window_frames<=150:raise ValueError("Outcome window must be 1..150 frames")
     split_overrides=dict(split_overrides or {})
@@ -78,20 +87,21 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
             if (segment[0]["run_id"],segment[0]["room"]["id"]) in active_rooms:
                 excluded_active_pairs+=sum(combat_active(a) and combat_active(b) for a,b in zip(segment,segment[1:]))
                 continue
-            for index in range(len(segment)-1):
-                observation,frame=segment[index],segment[index+1]
+            for index in range(len(segment)-action_lag_frames):
+                observation,frame=segment[index],segment[index+action_lag_frames]
                 if frame["player"].get("dead") or observation["player"].get("dead"):continue
                 if not observation["player"].get("controls_enabled",True):continue
-                if not combat_active(observation) or not combat_active(frame):continue
+                if not all(combat_active(f) and f["player"].get("controls_enabled",True) and not f["player"].get("dead")
+                           for f in segment[index:index+action_lag_frames+1]):continue
                 action,attempt=label_from_input(frame["human_input"])
                 item=observation["player"].get("active",{})
                 active=bool(attempt and item.get("ready") and (*event_key(frame),item.get("id")) in uses)
                 active_attempts+=int(attempt)
                 # Keep rare active-item edges even when movement samples are subsampled.
                 if frame["game_frame"]%stride and not active:continue
-                outcome=label_outcome(segment,index,evidence,outcome_window_frames)
+                outcome=label_outcome(segment,index,evidence,outcome_window_frames,action_lag_frames)
                 past=segment[max(0,index-max(HISTORY_OFFSETS)):index]
-                prompt,numeric,names=policy_observation(observation,past,condition=outcome["label"],include_active=not exclude_active_items)
+                prompt,numeric,names=policy_observation(observation,past,condition=outcome["label"],include_active=not exclude_active_items,include_controls=control_context)
                 deployment_prompt=prompt.rsplit("\nDesired outcome condition:",1)[0]+"\nDesired outcome condition: "+DEPLOYMENT_CONDITION+".\nChoose combat controls."
                 deployment_numeric=list(numeric)
                 for label in CONDITIONS:deployment_numeric[names.index(f"condition_{label}")]=float(label==DEPLOYMENT_CONDITION)
@@ -102,8 +112,9 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
                      "deployment_prompt":deployment_prompt,"deployment_numeric":deployment_numeric,
                      "action_label":action,"move_label":action//5,"shoot_label":action%5,
                      "active_label":active,"active_attempt":attempt,"active_item_id":item.get("id",0),"outcome":outcome}
+                row["previous_action_label"]=controls(observation)[0] # Evaluation/training weights only, never policy input.
                 out.write(json.dumps(row,ensure_ascii=False,separators=(",",":"),allow_nan=False)+"\n")
-    summary={**contract(),"counts":counts,"runs":{k:len(v) for k,v in runs.items()},"active_triggers":active_count,
+    summary={**profile,"counts":counts,"runs":{k:len(v) for k,v in runs.items()},"active_triggers":active_count,
              "split_rule":"whole-run explicit overrides; otherwise sha256(run_id) modulo 10: 0=test, 1=validation, 2..9=train","stride":stride,
              "split_overrides":split_overrides,"run_splits":{run:split_overrides.get(run,split_for_run(run)) for run in sorted(available_runs)},
              "segment_boundaries":unaligned,"active_attempts":active_attempts,"diagnostic_sessions_excluded":True,
@@ -134,16 +145,23 @@ def train(args):
     if args.epochs<1:raise ValueError("epochs must be positive")
     feature_batch=getattr(args,"feature_batch_size",16)
     if feature_batch<1:raise ValueError("feature_batch_size must be positive")
+    feature_pad=getattr(args,"feature_pad_multiple",0)
+    if feature_pad<0 or (feature_pad and args.max_length%feature_pad):raise ValueError("Feature padding must divide token budget")
     patience=getattr(args,"patience",8);min_delta=getattr(args,"min_delta",0.005)
     if patience<1 or min_delta<0:raise ValueError("patience must be positive and min_delta nonnegative")
     torch,np,save_file,_=_dependencies()
+    cpu_threads=getattr(args,"cpu_threads",1)
+    move_boost=getattr(args,"move_transition_weight",1.0);shoot_boost=getattr(args,"shoot_transition_weight",1.0)
+    if cpu_threads<1 or not 1<=move_boost<=25 or not 1<=shoot_boost<=25:raise ValueError("Invalid CPU/transition weighting settings")
+    torch.set_num_threads(cpu_threads)
     from .model import FrozenQwen,CombatHead
     from torch.utils.data import DataLoader,TensorDataset
     dataset=Path(args.dataset);output=Path(args.output)
     meta=json.loads((dataset/"dataset.json").read_text(encoding="utf-8"))
     if meta.get("training_phase")!=TRAINING_PHASE:raise ValueError("Rebuild the dataset for hostile-enemy/projectile combat phases")
     if meta.get("unsupported_action_filter")!=UNSUPPORTED_ACTION_FILTER:raise ValueError("Rebuild the dataset to exclude combat rooms with human bomb input")
-    if any(meta.get(k)!=v for k,v in contract().items()):raise ValueError("Dataset feature/rule contract differs from the current code")
+    profile=contract_for(meta)
+    if any(meta.get(k)!=v for k,v in profile.items()):raise ValueError("Dataset feature/rule contract differs from the current code")
     rows=[json.loads(l) for l in (dataset/"samples.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     groups={}
     for row in rows:groups.setdefault(row["run_id"],set()).add(row["split"])
@@ -158,17 +176,21 @@ def train(args):
     size=encoder.embedding_size;revision=encoder.revision
     emb=np.empty((len(rows),size),dtype=np.float16)
     order=sorted(range(len(rows)),key=lambda i:len(rows[i]["prompt"]))
+    feature_started=time.monotonic()
+    def encode_features(prompts):
+        return encoder.encode(prompts,pad_to_multiple_of=feature_pad) if feature_pad else encoder.encode(prompts)
     for start in range(0,len(rows),feature_batch):
         ids=order[start:start+feature_batch]
-        emb[ids]=encoder.encode([rows[i]["prompt"] for i in ids]).cpu().to(torch.float16).numpy()
+        emb[ids]=encode_features([rows[i]["prompt"] for i in ids]).cpu().to(torch.float16).numpy()
         completed=start+len(ids)
-        if completed%256<feature_batch or completed==len(rows):print(f"Frozen features: {completed}/{len(rows)}",flush=True)
+        if completed==feature_batch or completed%256<feature_batch or completed==len(rows):
+            print(f"Frozen features: {completed}/{len(rows)}; elapsed={time.monotonic()-feature_started:.1f}s",flush=True)
     deployment_emb=emb.copy()
     changed=[i for i in val_ids+test_ids if rows[i]["deployment_prompt"]!=rows[i]["prompt"]]
     changed.sort(key=lambda i:len(rows[i]["deployment_prompt"]))
     for start in range(0,len(changed),feature_batch):
         ids=changed[start:start+feature_batch]
-        deployment_emb[ids]=encoder.encode([rows[i]["deployment_prompt"] for i in ids]).cpu().to(torch.float16).numpy()
+        deployment_emb[ids]=encode_features([rows[i]["deployment_prompt"] for i in ids]).cpu().to(torch.float16).numpy()
     del encoder
     if args.device.startswith("cuda"):torch.cuda.empty_cache()
     np.savez_compressed(output/"frozen_features.npz",embedding=emb,deployment_embedding=deployment_emb)
@@ -177,6 +199,7 @@ def train(args):
     mean=np.zeros(numeric.shape[1],dtype=np.float32);std=np.ones(numeric.shape[1],dtype=np.float32)
     deployment_numeric=np.asarray([r["deployment_numeric"] for r in rows],dtype=np.float32)
     action=np.asarray([r["action_label"] for r in rows],dtype=np.int64)
+    previous=np.asarray([previous_action_label(r) for r in rows],dtype=np.int64)
     active=np.asarray([r["active_label"] for r in rows],dtype=np.float32)
     sample_weight=np.asarray([r["outcome"]["weight"] for r in rows],dtype=np.float32)
     positive=float(active[train_ids].sum());negative=len(train_ids)-positive
@@ -191,23 +214,33 @@ def train(args):
     def tensors(ids,deployment=False):
         e,n=(deployment_emb,deployment_numeric) if deployment else (emb,numeric)
         return TensorDataset(torch.from_numpy(e[ids]),torch.from_numpy(n[ids]),
-                             torch.from_numpy(action[ids]),torch.from_numpy(active[ids]),torch.from_numpy(sample_weight[ids]))
+                             torch.from_numpy(action[ids]),torch.from_numpy(active[ids]),torch.from_numpy(sample_weight[ids]),
+                             torch.from_numpy(previous[ids]))
     def evaluate(ids,deployment=False):
         if not ids:return {"samples":0}
         model.eval();correct=move_correct=shoot_correct=0;loss_sum=0;pred_pos=true_pos=gold_pos=0
+        move_changes=shoot_changes=move_change_correct=shoot_change_correct=idle_predictions=0;prediction_counts=Counter()
         with torch.no_grad():
-            for e,n,a,u,w in DataLoader(tensors(ids,deployment),batch_size=256):
-                e,n,a,u=[x.to(args.device) for x in (e,n,a,u)]
+            for e,n,a,u,w,p in DataLoader(tensors(ids,deployment),batch_size=256):
+                e,n,a,u,p=[x.to(args.device) for x in (e,n,a,u,p)]
                 move_logits,shoot_logits,active_logits=model(e,n)
                 loss_sum+=(torch.nn.functional.cross_entropy(move_logits,a//5,reduction="sum")+
                            torch.nn.functional.cross_entropy(shoot_logits,a%5,reduction="sum")).item()
                 m,s=move_logits.argmax(-1),shoot_logits.argmax(-1)
                 move_correct+=(m==a//5).sum().item();shoot_correct+=(s==a%5).sum().item()
                 correct+=(m*5+s==a).sum().item()
+                mc,sc=a//5!=p//5,a%5!=p%5
+                move_changes+=mc.sum().item();shoot_changes+=sc.sum().item()
+                move_change_correct+=((m==a//5)&mc).sum().item();shoot_change_correct+=((s==a%5)&sc).sum().item()
+                predicted_action=m*5+s;idle_predictions+=(predicted_action==0).sum().item()
+                prediction_counts.update(predicted_action.cpu().tolist())
                 predicted=active_logits.sigmoid()>0.8
                 pred_pos+=predicted.sum().item();gold_pos+=(u>0.5).sum().item();true_pos+=(predicted&(u>0.5)).sum().item()
         return {"samples":len(ids),"action_accuracy":correct/len(ids),"action_nll":loss_sum/len(ids),
                 "move_accuracy":move_correct/len(ids),"shoot_accuracy":shoot_correct/len(ids),
+                "move_changes":{"samples":move_changes,"accuracy":move_change_correct/move_changes if move_changes else None},
+                "shoot_changes":{"samples":shoot_changes,"accuracy":shoot_change_correct/shoot_changes if shoot_changes else None},
+                "idle_prediction_fraction":idle_predictions/len(ids),"prediction_counts":dict(prediction_counts),
                 "active_precision":true_pos/pred_pos if active_trained and pred_pos else None,
                 "active_recall":true_pos/gold_pos if active_trained and gold_pos else None}
     positive_val=[i for i in val_ids if rows[i]["outcome"]["label"]==DEPLOYMENT_CONDITION]
@@ -217,12 +250,13 @@ def train(args):
     best=float("inf");meaningful_best=float("inf");stale_epochs=0;best_epoch=0;history=[]
     for epoch in range(args.epochs):
         model.train()
-        for e,n,a,u,w in DataLoader(tensors(train_ids),batch_size=128,shuffle=True):
-            e,n,a,u,w=[x.to(args.device) for x in (e,n,a,u,w)]
+        for e,n,a,u,w,p in DataLoader(tensors(train_ids),batch_size=128,shuffle=True):
+            e,n,a,u,w,p=[x.to(args.device) for x in (e,n,a,u,w,p)]
             move_logits,shoot_logits,active_logits=model(e,n)
-            per_row=(torch.nn.functional.cross_entropy(move_logits,a//5,reduction="none")+
-                     torch.nn.functional.cross_entropy(shoot_logits,a%5,reduction="none"))
-            loss=(per_row*w).sum()/w.sum()
+            mw=w*(1+(move_boost-1)*(a//5!=p//5));sw=w*(1+(shoot_boost-1)*(a%5!=p%5))
+            move_loss=torch.nn.functional.cross_entropy(move_logits,a//5,reduction="none")
+            shoot_loss=torch.nn.functional.cross_entropy(shoot_logits,a%5,reduction="none")
+            loss=(move_loss*mw).sum()/mw.sum()+(shoot_loss*sw).sum()/sw.sum()
             if active_trained:loss=loss+0.25*bce(active_logits,u)
             optimizer.zero_grad();loss.backward();torch.nn.utils.clip_grad_norm_(model.parameters(),1);optimizer.step()
         metrics=evaluate(positive_val or val_ids,deployment=bool(positive_val))
@@ -241,8 +275,10 @@ def train(args):
             break
     from safetensors.torch import load_file
     model.load_state_dict(load_file(str(output/"head.safetensors")))
-    config={**contract(),"model":args.model,"revision":revision,"embedding_size":size,"numeric_size":numeric.shape[1],
+    config={**profile,"model":args.model,"revision":revision,"embedding_size":size,"numeric_size":numeric.shape[1],
             "artifact_purpose":"limited-data-imitation-training",
+            "transition_loss_weights":{"move":move_boost,"shoot":shoot_boost},
+            "feature_padding_multiple":feature_pad,
             "training_phase":TRAINING_PHASE,
             "unsupported_action_filter":UNSUPPORTED_ACTION_FILTER,
             "outcome_window_frames":meta["outcome_window_frames"],"training_conditions":list(CONDITIONS),
@@ -279,7 +315,7 @@ async def infer(args):
     from .model import FrozenQwen,CombatHead
     root=Path(args.checkpoint)
     cfg=json.loads((root/"policy_config.json").read_text(encoding="utf-8"))
-    if any(cfg.get(k)!=v for k,v in contract().items()):raise ValueError("Checkpoint rules/features differ from this runtime")
+    if any(cfg.get(k)!=v for k,v in contract_for(cfg).items()):raise ValueError("Checkpoint rules/features differ from this runtime")
     manifest=json.loads((root/"manifest.json").read_text(encoding="utf-8"))
     for file,digest in manifest.items():
         if (root/file).resolve().parent!=root.resolve():raise ValueError("Invalid manifest path")
@@ -291,7 +327,7 @@ async def infer(args):
     mean,std=np.asarray(norm["mean"]),np.asarray(norm["std"])
     # Warm up before taking control; the first kernel invocation must not delay a live AI action.
     from .mock import sample_frame
-    encoder.encode([policy_observation(sample_frame(),include_active=cfg.get("active_context",True))[0]])
+    encoder.encode([policy_observation(sample_frame(),include_active=cfg.get("active_context",True),include_controls=cfg.get("control_context",True))[0]])
     print("Policy ready: unpause the game; the requested mode starts on a fresh frame.",flush=True)
     previous=None;running_since=None;waiting_since=time.monotonic();mode_requested=False
     try:
@@ -321,7 +357,7 @@ async def infer(args):
             if frame["player"].get("dead") or (not combat_active(frame) and args.mode=="ai"):
                 await asyncio.sleep(0.05);continue
             if "policy_history" not in reply:raise RuntimeError("Restart the bridge to enable v3 short-term history")
-            prompt,numeric,names=policy_observation(frame,condition=cfg["deployment_condition"],history_facts=reply["policy_history"],include_active=cfg.get("active_context",True))
+            prompt,numeric,names=policy_observation(frame,condition=cfg["deployment_condition"],history_facts=reply["policy_history"],include_active=cfg.get("active_context",True),include_controls=cfg.get("control_context",True))
             if names!=cfg["numeric_names"]:raise ValueError("numeric feature order mismatch")
             start=time.perf_counter()
             with torch.no_grad():
