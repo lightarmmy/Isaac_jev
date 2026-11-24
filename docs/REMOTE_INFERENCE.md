@@ -35,7 +35,7 @@ Qwen3.5 包含门控线性注意力；原环境缺少对应融合内核。项目
 3. 双击 `Start_Remote_Shadow.cmd`。客户端会等待服务 ready 和游戏未暂停的新帧，进入 shadow。只在战斗阶段计算动作，包括清房后的敌方残弹；无敌人和弹幕时等待规划层。
 4. shadow 时仍由你控制角色。结束客户端用 Ctrl+C；F8 接管回 manual 也会使客户端停止。客户端结束或断线时恢复 manual，Lua 原有指令有效期继续保留。
 
-准备让模型实际控制战斗时，在项目终端运行：
+准备让模型实际控制战斗时，先在 shadow 窗口按 Ctrl+C 结束客户端并关闭此窗口，保持 SSH 隧道窗口打开。双击项目根目录 `Start_Remote_AI.cmd`，再回游戏取消暂停。客户端在收到新帧后切换 ai，进入有敌人或残弹的房间时松开移动/射击按键，观察模型操作。开始接管后不要用暂停切换窗口；按 Esc 暂停或 F8 都会回人工并结束本次客户端。也可以在项目终端运行：
 
 ```powershell
 .venv\Scripts\python.exe run.py remote-infer --mode ai --max-seconds 30
