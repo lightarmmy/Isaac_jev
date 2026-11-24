@@ -22,7 +22,7 @@ python <本技能目录>/scripts/isaac_tools.py call observe_game
 
 ## 运行
 
-1. `setup` 启动本地工具服务。`doctor` 核对游戏新状态、模组 0.4.1 和 L40S。缺少通路时读 [connection.md](references/connection.md)。
+1. `setup` 启动本地工具服务。`doctor` 核对游戏新状态、模组 0.4.2 和 L40S。缺少通路时读 [connection.md](references/connection.md)。
 2. 读取 `observe_game`、`get_floor_map`，按需读 `get_rules`。游戏事实和合法候选以最新工具返回为准。
 3. 用户要求实际游玩时调用 `start_autoplay`，再 `wait_for_decision` 等待 `controller_phase=planning`。初始游戏需要未暂停、manual 模式；旧独立 AI/shadow 客户端先结束。
 4. 从 `get_available_actions` 的 action_id 选择一个目标，调用 `execute_plan`，传最新 decision_id 和简短理由。优先处理可补血/可拾取掉落、宝箱房、尚未查看的商店和未探索房间；根据血量、钥匙、装备、上次战斗结果权衡。
@@ -31,6 +31,8 @@ python <本技能目录>/scripts/isaac_tools.py call observe_game
 7. 结束时 `stop_autoplay`。`finish_floor_demo` 会报告剩余房间；若仍有未访问/未清理房间，明确说明未完成原因。
 
 F8、暂停、断线和死亡会撤销自动会话。收到 autoplay=false / human_takeover / cancelled 后停止自动操作，等待用户重新要求游玩；旧请求不得重新接管。
+
+战斗状态的 `combat_timing` 提供预测、发送、受理、拒绝和丢弃计数。受理不能证明角色执行；实际输入以录像 `applied_controls` 和 `action_started/action_ended` 为准。角色持续静止、快速掉血且拒绝/过期计数增长时，停止会话并报告通路问题；不要反复重开消耗生命。模型仍可能选择停留或因墙体无法移动，应结合动作与实际输入区分。诊断工具可后台读取，无需切换游戏焦点。
 
 ## 道具知识
 

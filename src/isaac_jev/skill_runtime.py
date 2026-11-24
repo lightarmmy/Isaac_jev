@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 import time
 import uuid
+from collections import Counter
+from dataclasses import replace
+from .actions import MAX_OBSERVATION_AGE_FRAMES, EXECUTION_TIMING
 from .bridge import request_control
 from .features import policy_observation
 from .navigation import Navigator
@@ -20,6 +23,8 @@ class GameRuntime:
         self.memory=GameMemory();self.policy=None;self.policy_config=None;self.backend=None
         self.enabled=False;self.lease=None;self.phase="manual";self.task=None;self.generation=0
         self.prediction=None;self.last_scored=None;self.last_action_frame=None;self.safe_since=None
+        self.delivery=None;self.frame_available=asyncio.Event();self.frame_received_at=0
+        self.combat_hold_frames=6;self.combat_stats=Counter();self.last_sampled_input=None
         self.cursor=0;self.condition=asyncio.Condition();self.goal_handlers={};self.floor_started=None
         self.run_started=None;self.last_error=None;self.last_model_ms=None
         self.policy_lock=asyncio.Lock()
@@ -35,6 +40,11 @@ class GameRuntime:
         self.memory.events.append(record)
         with self.log_path.open("a",encoding="utf-8") as out:out.write(json.dumps(record,ensure_ascii=False,allow_nan=False)+"\n")
         async with self.condition:self.condition.notify_all()
+
+    def diagnostic(self,kind,**fields):
+        # Per-action telemetry must not wake the high-level agent every 60 ms.
+        record={"event":kind,"time":datetime.now(timezone.utc).isoformat(),**fields}
+        with self.log_path.open("a",encoding="utf-8") as out:out.write(json.dumps(record,ensure_ascii=False,allow_nan=False)+"\n")
 
     async def connect_policy(self):
         async with self.policy_lock:return await self._connect_policy()
@@ -61,7 +71,9 @@ class GameRuntime:
         result=self.memory.snapshot(detail)
         result.update(autoplay=self.enabled,controller_phase=self.phase,event_cursor=self.cursor,
             execution={k:v for k,v in (self.task or {}).items() if k not in {"navigator","before"}},
-            battle_backend=self.backend,last_model_ms=self.last_model_ms,last_error=self.last_error)
+            battle_backend=self.backend,last_model_ms=self.last_model_ms,last_error=self.last_error,
+            combat_timing={"observation_budget_frames":MAX_OBSERVATION_AGE_FRAMES,"hold_frames":self.combat_hold_frames,
+                "execution_timing":EXECUTION_TIMING,"counters":dict(self.combat_stats)})
         result["actions"]=self.actions() if result.get("phase")=="planning" else []
         return result
 
@@ -80,7 +92,9 @@ class GameRuntime:
             raise ValueError("Unpause the experimental game in manual mode before start_autoplay")
         cells=frame.get("room",{}).get("navigation_cells") if frame else None
         if not frame or frame.get("planner_schema")!=1 or not cells or not isinstance(cells[0],list):
-            raise ValueError("Reload Isaac Jev Bridge 0.4.1 before using the skill")
+            raise ValueError("Reload Isaac Jev Bridge 0.4.2 before using the skill")
+        if (reply["status"].get("hello") or {}).get("input_timing")!=EXECUTION_TIMING:
+            raise ValueError("Reload Isaac Jev Bridge 0.4.2: combat needs start-relative input timing")
         if not reply["status"].get("control_leases_supported"):raise ValueError("Restart the bridge with skill control support")
         result=await self.control({"command":"acquire_control","owner":"isaac-skill-"+uuid.uuid4().hex})
         if not result.get("ok"):raise ValueError(result.get("error","Control unavailable"))
@@ -91,6 +105,7 @@ class GameRuntime:
             raise ValueError(result.get("error","Cannot enter ai mode"))
         self.enabled=True;self.phase="starting";self.floor_started=self.memory.floor_id;self.run_started=self.memory.run_id
         self.safe_since=None;self.last_action_frame=None
+        self.last_scored=None;self.combat_stats.clear();self.last_sampled_input=None
         await self.event("autoplay_started",backend=self.backend)
         return self.observe()
 
@@ -98,6 +113,8 @@ class GameRuntime:
         self.enabled=False;self.generation+=1;self.phase="manual"
         if self.prediction:
             self.prediction.cancel();await asyncio.gather(self.prediction,return_exceptions=True);self.prediction=None
+        if self.delivery:
+            self.delivery.cancel();await asyncio.gather(self.delivery,return_exceptions=True);self.delivery=None
         if self.task:
             self.task["status"]="cancelled";await self.event("task_cancelled",task_id=self.task["task_id"],reason=reason)
             self.task=None
@@ -146,8 +163,17 @@ class GameRuntime:
         if not self.enabled or not self.lease:return
         # Initial skill capabilities exclude all active, bomb and card use.
         if action.use_active:raise ValueError("Active item use is not enabled in this skill")
+        started=time.perf_counter();combat=self.phase=="combat"
+        identity={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"observation_frame":frame["game_frame"]}
+        self.diagnostic("action_sent",**identity,action_id=action.action_id,hold_frames=action.hold_frames,controller_phase=self.phase)
+        if combat:self.combat_stats["sent"]+=1
         result=await self.control({**action.as_command(frame),"lease_id":self.lease["id"]})
-        if not result.get("ok"):self.last_error=result.get("error") or result.get("ack",{}).get("reason")
+        ack=result.get("ack") or {};reason=result.get("error") or ack.get("reason")
+        self.diagnostic("action_ack",**identity,request_id=ack.get("request_id"),ok=bool(result.get("ok")),reason=reason,
+            ack_frame=ack.get("game_frame"),ack_ms=round((time.perf_counter()-started)*1000,3),controller_phase="combat" if combat else "navigation")
+        if combat:self.combat_stats["accepted" if result.get("ok") else "rejected"]+=1
+        if not result.get("ok"):self.last_error=reason
+        else:self.last_error=None
         self.last_action_frame=(frame["run_id"],frame["room"]["id"],frame["game_frame"])
 
     async def score(self,frame,history,generation):
@@ -158,6 +184,48 @@ class GameRuntime:
         reply=await self.policy.request({"command":"predict","prompt":prompt,"numeric":numeric,"observation":observation,
             "feature_version":cfg["feature_version"],"head_architecture":cfg["head_architecture"],"rules_sha256":cfg["rules_sha256"]})
         return prediction_action(reply,frame,cfg),frame,generation,(time.perf_counter()-started)*1000,reply["model_ms"]
+
+    def discard_reason(self,source,generation,elapsed,source_age_ms):
+        frame=self.memory.frame;status=(self.memory.reply or {}).get("status",{})
+        if not self.enabled or generation!=self.generation or self.phase!="combat":return "session_changed"
+        if status.get("control_lease")!=self.lease or not status.get("connected") or not frame or frame.get("mode")!="ai":return "control_changed"
+        if source["run_id"]!=frame["run_id"] or source["room"]["id"]!=frame["room"]["id"]:return "run_room_changed"
+        if not combat_active(frame) or frame["player"].get("dead"):return "combat_ended"
+        if not 0<=frame["game_frame"]-source["game_frame"]<MAX_OBSERVATION_AGE_FRAMES:return "observation_frame_expired"
+        if source_age_ms+elapsed>=200:return "observation_wall_expired"
+        return None
+
+    async def combat_loop(self,generation):
+        # Frame acquisition/safety checks continue in tick. One prediction and at
+        # most one ACK are in flight; old predictions are never queued or relabelled.
+        while self.enabled and self.phase=="combat" and generation==self.generation:
+            if not self.policy or not self.policy.writer:await self.connect_policy()
+            self.frame_available.clear()
+            frame=self.memory.frame;reply=self.memory.reply or {}
+            key=(frame["run_id"],frame["room"]["id"],frame["game_frame"])
+            if key==self.last_scored:
+                try:await asyncio.wait_for(self.frame_available.wait(),0.05)
+                except asyncio.TimeoutError:pass
+                continue
+            if self.delivery and self.delivery.done():
+                self.delivery.result();self.delivery=None
+            source_age_ms=(reply.get("status",{}).get("last_frame_age_ms") or 0)+(time.monotonic()-self.frame_received_at)*1000
+            self.last_scored=key
+            action,source,scored_generation,elapsed,model_ms=await self.score(frame,reply["policy_history"],generation)
+            self.last_model_ms=model_ms;self.combat_stats["predictions"]+=1
+            reason=self.discard_reason(source,scored_generation,elapsed,source_age_ms)
+            if not reason and self.delivery and not self.delivery.done():reason="ack_pending"
+            self.diagnostic("inference_completed",run_id=source["run_id"],room_id=source["room"]["id"],
+                observation_frame=source["game_frame"],current_frame=self.memory.frame["game_frame"],
+                action_id=action.action_id,model_ms=model_ms,response_ms=round(elapsed,3),source_age_ms=round(source_age_ms,3),discard_reason=reason)
+            if reason:
+                self.combat_stats["discarded_"+reason]+=1
+            else:
+                # Duration is a controller setting, not a learned output. Navigation
+                # keeps 3 frames while combat bridges the next 50-80 ms prediction.
+                self.delivery=asyncio.create_task(self.send(replace(action,hold_frames=self.combat_hold_frames),source))
+            # Yield so send and the frame reader can run before preparing the next prompt.
+            await asyncio.sleep(0)
 
     async def finish_task(self,status,reason=""):
         task=self.task
@@ -213,6 +281,8 @@ class GameRuntime:
         reply=await self.control({"command":"get_frame","include_history":True})
         if self.enabled and self.lease and reply.get("status",{}).get("control_epoch",self.lease["epoch"])<self.lease["epoch"]:return
         accepted=self.memory.update(reply)
+        if accepted:
+            self.frame_received_at=time.monotonic();self.frame_available.set()
         if not self.enabled:return
         if not accepted:return
         if time.monotonic()-self.last_agent_contact>120:
@@ -235,17 +305,17 @@ class GameRuntime:
             if self.phase!="combat":
                 self.phase="combat";self.generation+=1
                 await self.event("combat_started",room_id=frame["room"]["id"])
-            if self.prediction and self.prediction.done():
-                action,source,generation,elapsed,model_ms=self.prediction.result();self.prediction=None
-                self.last_model_ms=model_ms
-                if generation==self.generation and source["run_id"]==frame["run_id"] and source["room"]["id"]==frame["room"]["id"] and 0<=frame["game_frame"]-source["game_frame"]<6 and elapsed<200:
-                    await self.send(action,source)
-            key=(frame["run_id"],frame["room"]["id"],frame["game_frame"])
-            if self.prediction is None and key!=self.last_scored:
-                self.last_scored=key;self.prediction=asyncio.create_task(self.score(copy.deepcopy(frame),reply["policy_history"],self.generation))
+            applied=frame.get("applied_controls") or {}
+            sample=(applied.get("run_id"),applied.get("room_id"),applied.get("game_frame"))
+            if sample[0]==frame["run_id"] and sample[1]==frame["room"]["id"] and sample!=self.last_sampled_input:
+                self.last_sampled_input=sample;self.combat_stats["observed_applied_frames"]+=bool(applied.get("requests"))
+            if self.prediction and self.prediction.done():self.prediction.result();self.prediction=None
+            if self.prediction is None:self.prediction=asyncio.create_task(self.combat_loop(self.generation))
             return
         if self.prediction:
             self.prediction.cancel();await asyncio.gather(self.prediction,return_exceptions=True);self.prediction=None;self.generation+=1
+        if self.delivery:
+            self.delivery.cancel();await asyncio.gather(self.delivery,return_exceptions=True);self.delivery=None
         if self.safe_since is None:self.safe_since=(frame["room"]["id"],frame["game_frame"])
         if self.safe_since[0]!=frame["room"]["id"]:self.safe_since=(frame["room"]["id"],frame["game_frame"])
         if frame["game_frame"]-self.safe_since[1]<6:return
@@ -265,7 +335,7 @@ class GameRuntime:
                 except (OSError,ValueError,RuntimeError,KeyError,TypeError,asyncio.TimeoutError) as exc:
                     self.last_error=str(exc)
                     if self.enabled:await self.stop("runtime_error: "+str(exc))
-                await asyncio.sleep(0.02)
+                await asyncio.sleep(0.005 if self.phase=="combat" else 0.02)
         finally:
             if self.enabled:await self.stop("service_stopped")
             if self.policy:await self.policy.close()

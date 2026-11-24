@@ -68,7 +68,7 @@ def create_registry(runtime,store):
         policy.pop("config",None)
         game_status=(runtime.memory.reply or {}).get("status",{})
         return {"service":SERVICE_ID,"game_connected":game_status.get("connected",False),"frame_available":runtime.memory.frame is not None,
-            "mod_version":(game_status.get("hello") or {}).get("mod_version"),"planner_schema":snapshot.get("planner_schema"),
+            "mod_version":(game_status.get("hello") or {}).get("mod_version"),"input_timing":(game_status.get("hello") or {}).get("input_timing"),"planner_schema":snapshot.get("planner_schema"),
             "bridge_control_leases":bool((runtime.memory.reply or {}).get("status",{}).get("control_leases_supported")),
             "game_fresh":snapshot.get("last_frame_age_ms") is not None and snapshot["last_frame_age_ms"]<200,
             "battle_ai":policy,"scope":"first demo","local_model_loaded":False}

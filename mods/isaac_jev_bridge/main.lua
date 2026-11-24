@@ -14,6 +14,8 @@ local controlReason, controlRevision = "initial", 0
 local floorCache, floorCacheAt, floorCacheKey = nil, -1000, ""
 local inventoryCheckedAt = -1000
 local inventoryFingerprint = ""
+local appliedControls = nil
+local EXECUTION_TIMING = "start-relative-v1"
 
 local function arr(t) return setmetatable(t or {}, {__json_array=true}) end
 local function read(o, k, default)
@@ -74,8 +76,17 @@ local function emit(msg)
     tx=tx..line
     return true
 end
-local function setControlMode(nextMode,reason)
+local function clearCommand(reason)
+    if command then
+        emit({type="event",event=command.started_frame and "action_ended" or "action_discarded",
+              request_id=command.request_id,run_id=command.run_id,room_id=command.room_id,
+              game_frame=math.floor(Game():GetFrameCount()),observation_frame=command.observation_frame,
+              started_frame=command.started_frame,stop_frame=command.stop_frame,reason=reason})
+    end
     command=nil
+end
+local function setControlMode(nextMode,reason)
+    clearCommand(reason or "mode_changed")
     local previous=mode
     mode=nextMode;controlReason=reason or "requested_mode";controlRevision=controlRevision+1
     if previous~=nextMode then
@@ -85,7 +96,7 @@ local function setControlMode(nextMode,reason)
     end
 end
 local function clearControl(reason)
-    command=nil
+    clearCommand(reason or "manual_reset")
     -- Repeated paused renders must not flood the raw event stream.
     if mode~="manual" then setControlMode("manual",reason or "manual_reset") end
 end
@@ -118,8 +129,9 @@ local function connect()
     local s=core.tcp();s:settimeout(0.01)
     local connected,err=s:connect(HOST,PORT)
     if not connected then s:close();lastError=tostring(err);return end
-    s:settimeout(0);sock=s;rx="";tx="";clearControl("reconnected");lastError=""
-    emit({type="hello",client="isaac_mod",mod_version="0.4.1",capture_phase="pre_update",
+    s:settimeout(0);pcall(function() s:setoption("tcp-nodelay",true) end)
+    sock=s;rx="";tx="";clearControl("reconnected");lastError=""
+    emit({type="hello",client="isaac_mod",mod_version="0.4.2",input_timing=EXECUTION_TIMING,capture_phase="pre_update",
           repentogon=REPENTOGON~=nil,run_id=runId,logic_hz=30})
     print("[IsaacJev] connected to Python; MANUAL mode")
 end
@@ -154,10 +166,19 @@ local function handle(msg)
        or type(msg.action_id)~="number" or msg.action_id<0 or msg.action_id>=45
        or type(msg.use_active)~="boolean" then acknowledge(msg,false,"invalid action");return end
     if mode=="manual" then acknowledge(msg,false,"manual mode");return end
+    if msg.execution_timing~=nil and msg.execution_timing~=EXECUTION_TIMING then acknowledge(msg,false,"invalid execution timing");return end
     local hold=msg.hold_frames or (msg.valid_until_frame-msg.observation_frame)
     if type(hold)~="number" or hold~=math.floor(hold) or hold<1 or hold>6 then acknowledge(msg,false,"invalid hold duration");return end
+    clearCommand("replaced")
     command=msg;command.hold_frames=hold;command.started_frame=nil;command.active_frame=nil;command.stop_frame=nil;lastRequest=msg.request_id
     acknowledge(msg,true,mode=="shadow" and "shadow only" or "accepted")
+end
+local function flushTx()
+    if not sock or #tx==0 then return end
+    local sent,err,partial=sock:send(tx)
+    local count=sent or partial or 0
+    if count>0 then tx=tx:sub(count+1) end
+    if err=="closed" then disconnect("Python disconnected") end
 end
 local function network()
     connect()
@@ -176,12 +197,7 @@ local function network()
         local ok,msg=pcall(json.decode,line)
         if ok and type(msg)=="table" then handle(msg) else lastError="invalid control JSON" end
     end
-    if #tx>0 then
-        local sent,err,partial=sock:send(tx)
-        local count=sent or partial or 0
-        if count>0 then tx=tx:sub(count+1) end
-        if err=="closed" then disconnect("Python disconnected") end
-    end
+    flushTx()
 end
 local function player0()
     if Game():GetNumPlayers()<1 then return nil end
@@ -350,7 +366,7 @@ local function snapshot()
     end
     local held=humanInput(p)
     local currentRoom=roomId()
-    if currentRoom~=lastRoom then command=nil;lastRoom=currentRoom;floorCache=nil;inventoryCount=-1 end
+    if currentRoom~=lastRoom then clearCommand("room_changed");lastRoom=currentRoom;floorCache=nil;inventoryCount=-1;appliedControls=nil end
     sequence=sequence+1
     return {type="frame",protocol_version=VERSION,run_id=runId,seq=sequence,game_frame=frameNo(),
             capture_phase="pre_update",game_time_ms=Isaac.GetTime(),mode=mode,
@@ -363,13 +379,13 @@ local function snapshot()
                            max_fire_delay=p.MaxFireDelay,tear_height=p.TearHeight,tear_flags=flagData(p.TearFlags)},
                     active=activeItem(p),inventory=inventory(p)},
             planner_stats={luck=read(p,"Luck",nil),tear_range=read(p,"TearRange",nil)},
-            human_input=held,entities=entities,execution=command or {},
+            human_input=held,entities=entities,execution=command or {},applied_controls=appliedControls or {},
             bridge={dropped_frames=drops},supported_player_count=Game():GetNumPlayers()}
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED,function(_,continued)
     runId=runKey()
-    sequence=0;lastRoom=nil;inventoryCount=-1;inventoryCheckedAt=-1000;floorCache=nil;command=nil;previousHeld={}
+    sequence=0;lastRoom=nil;inventoryCount=-1;inventoryCheckedAt=-1000;floorCache=nil;clearCommand("run_started");previousHeld={};appliedControls=nil
     emit({type="event",event="run_started",run_id=runId,continued=continued,game_frame=frameNo()})
 end)
 if ModCallbacks.MC_PRE_UPDATE then
@@ -382,6 +398,8 @@ if ModCallbacks.MC_PRE_UPDATE then
             emit(frame)
             inputEdges={active_trigger=false,bomb_trigger=false,card_trigger=false}
         elseif not ok then lastError=tostring(frame);print("[IsaacJev] capture error: "..lastError) end
+        -- Send this observation now, rather than adding one full logic frame of age.
+        flushTx()
         -- nil return: do not cancel or pause the game update.
     end)
 else
@@ -398,7 +416,7 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER,function()
         end
     end
     if Game():IsPaused() then
-        network();command=nil -- No action may survive a paused transition.
+        network();clearCommand("paused_transition") -- No action may survive a paused transition.
         if humanPauseOpen() then clearControl("pause_menu") end
     end
     if p and Input.IsButtonPressed(Keyboard.KEY_F8,p.ControllerIndex) then clearControl("f8") end
@@ -409,7 +427,12 @@ mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
     if mode~="ai" or not command or not sock or Game():IsPaused() then return nil end
     local p=player0()
     if not p or not entity or entity.Type~=EntityType.ENTITY_PLAYER or entity.Index~=p.Index then return nil end
-    if command.run_id~=runId or command.room_id~=roomId() or frameNo()>=command.valid_until_frame then command=nil;return nil end
+    if command.run_id~=runId or command.room_id~=roomId() then clearCommand("run_room_changed");return nil end
+    -- valid_until is the deadline to START a fresh action. A started v1 action
+    -- has its own bounded stop frame. Legacy actions retain the original cutoff.
+    if (not command.started_frame or command.execution_timing~=EXECUTION_TIMING) and frameNo()>=command.valid_until_frame then
+        clearCommand("expired_before_start");return nil
+    end
     local active
     if action==ButtonAction.ACTION_LEFT then active=command.move.x<0
     elseif action==ButtonAction.ACTION_RIGHT then active=command.move.x>0
@@ -421,16 +444,29 @@ mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
     elseif action==ButtonAction.ACTION_SHOOTDOWN then active=command.shoot.y>0
     elseif action==ButtonAction.ACTION_ITEM then active=command.use_active
     else return nil end
+    if hook~=InputHook.GET_ACTION_VALUE and hook~=InputHook.IS_ACTION_PRESSED and hook~=InputHook.IS_ACTION_TRIGGERED then return nil end
     local now=frameNo()
     if not command.started_frame then
         command.started_frame=now;command.active_frame=now
-        command.stop_frame=math.min(now+command.hold_frames,command.valid_until_frame)
+        command.stop_frame=now+command.hold_frames
+        if command.execution_timing~=EXECUTION_TIMING then command.stop_frame=math.min(command.stop_frame,command.valid_until_frame) end
         emit({type="event",event="action_started",request_id=command.request_id,run_id=runId,
-              game_frame=now,observation_frame=command.observation_frame,action_id=command.action_id,
+              room_id=command.room_id,game_frame=now,observation_frame=command.observation_frame,action_id=command.action_id,
               use_active=command.use_active,stop_frame=command.stop_frame})
     end
-    if now>=command.stop_frame then command=nil;return nil end
+    if now>=command.stop_frame then clearCommand("hold_finished");return nil end
     if action==ButtonAction.ACTION_ITEM then active=active and now==command.active_frame end
+    -- Record actual callback queries, including all-zero model actions. The frame
+    -- key is explicit because the pre-update snapshot describes the preceding input.
+    if not appliedControls or appliedControls.game_frame~=now then
+        appliedControls={game_frame=now,run_id=runId,room_id=roomId(),requests=arr()}
+    end
+    local record=appliedControls.requests[#appliedControls.requests]
+    if not record or record.request_id~=command.request_id then
+        record={request_id=command.request_id,action_id=command.action_id,queried={},pressed={}}
+        appliedControls.requests[#appliedControls.requests+1]=record
+    end
+    record.queried[tostring(action)]=true;record.pressed[tostring(action)]=active
     if hook==InputHook.GET_ACTION_VALUE then return active and 1.0 or 0.0 end
     if hook==InputHook.IS_ACTION_PRESSED or hook==InputHook.IS_ACTION_TRIGGERED then return active end
     return nil

@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 import uuid
 
-from .actions import Action,MAX_OBSERVATION_AGE_FRAMES
+from .actions import Action,MAX_OBSERVATION_AGE_FRAMES,EXECUTION_TIMING
 from .protocol import MAX_MESSAGE_BYTES, PROTOCOL_VERSION, MODES, decode, encode, validate_frame
 from .recording import SessionRecorder
 from .rooms import RoomTimeline
@@ -247,9 +247,13 @@ class BridgeServer:
                 if payload.get("run_id") != self.latest["run_id"] or payload.get("room_id") != self.latest["room"]["id"]:
                     raise ValueError("action run/room mismatch")
                 action = Action(payload.get("action_id"), payload.get("use_active", False), payload.get("hold_frames", 3))
+                timing = payload.get("execution_timing")
+                if timing not in {None, EXECUTION_TIMING}:
+                    raise ValueError("unsupported execution timing")
                 if not 0 <= self.latest["game_frame"] - observed < MAX_OBSERVATION_AGE_FRAMES:
                     raise ValueError("action already expired or from future frame")
                 command = action.as_command({"run_id": payload["run_id"], "room": {"id": payload["room_id"]}, "game_frame": observed})
+                if timing is None:command.pop("execution_timing") # Legacy clients keep their original cutoff.
             else:
                 command = {"command": "ping"}
             request_id = uuid.uuid4().hex

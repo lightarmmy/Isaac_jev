@@ -83,6 +83,9 @@ class RoomPhaseTests(unittest.TestCase):
             closed.append(first);closed.append(last);closed.close()
             opened = SessionRecorder(root/"records")
             try:
+                # The writer opens its gzip asynchronously. This fixture needs an
+                # existing open stream, rather than racing file enumeration.
+                (opened.path/"frames.jsonl.gz").touch(exist_ok=True)
                 report = export_room_timeline(root/"records",root/"timeline.jsonl")
                 events = [json.loads(line) for line in (root/"timeline.jsonl").read_text().splitlines()]
                 self.assertEqual([event["event"] for event in events],["room_observed","room_cleared"])

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 from isaac_jev.actions import Action
@@ -104,14 +105,17 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         async def control(payload):
             self.commands.append(copy.deepcopy(payload));cmd=payload["command"]
             if cmd in {"get_frame","get_status"}:
-                status={"connected":True,"last_frame_age_ms":0,"control_leases_supported":True,"control_lease":self.lease}
+                status={"connected":True,"last_frame_age_ms":0,"control_leases_supported":True,"control_lease":self.lease,
+                    "hello":{"input_timing":"start-relative-v1"}}
                 return {"ok":True,"status":status,"frame":copy.deepcopy(self.f),"policy_history":history_summary(self.f,[])}
             if cmd=="acquire_control":self.lease={"id":"lease","owner":"test","epoch":1};return {"ok":True,"lease":self.lease}
             if cmd=="set_mode":self.f["mode"]=payload["mode"];return {"ok":True}
             if cmd=="release_control":self.lease=None;return {"ok":True}
             return {"ok":True}
         self.runtime.control=control
-        async def connect():self.runtime.policy_config={};self.runtime.backend={"fixture":True};return {"ready":True}
+        async def connect():
+            self.runtime.policy_config={};self.runtime.backend={"fixture":True};self.runtime.policy=SimpleNamespace(writer=True)
+            return {"ready":True}
         self.runtime.connect_policy=connect
 
     async def asyncTearDown(self):
@@ -163,12 +167,81 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_stale_room_prediction_never_gets_relabelled(self):
         await self.start_planning();source=copy.deepcopy(self.f);source["entities"]=[sample_frame()["entities"][0]]
         self.f["entities"]=source["entities"];self.runtime.phase="combat";self.runtime.generation=3
-        async def ready():return Action(19),source,3,50,49
-        task=asyncio.create_task(ready());await task;self.runtime.prediction=task
+        gate=asyncio.Event();started=asyncio.Event()
+        async def score(*args):started.set();await gate.wait();return Action(19),source,3,50,49
+        self.runtime.score=score
+        await self.runtime.tick();await started.wait()
         self.f["room"]["id"]="1:0:16";self.f["game_frame"]+=1
-        await self.runtime.tick()
+        await self.runtime.tick();gate.set();await asyncio.sleep(0.01)
         self.assertFalse(any(c["command"]=="action" for c in self.commands))
+        self.assertGreater(self.runtime.combat_stats["discarded_run_room_changed"],0)
         if self.runtime.prediction:self.runtime.prediction.cancel();await asyncio.gather(self.runtime.prediction,return_exceptions=True)
+
+    async def test_inference_continues_while_previous_ack_is_pending(self):
+        await self.start_planning();self.f["entities"]=[sample_frame()["entities"][0]]
+        base=self.runtime.control;ack_gate=asyncio.Event();sent=asyncio.Event();second_score=asyncio.Event();calls=0
+        async def slow_ack(payload):
+            if payload["command"]=="action":sent.set();await ack_gate.wait()
+            return await base(payload)
+        async def score(source,history,generation):
+            nonlocal calls
+            calls+=1
+            if calls==2:second_score.set();await asyncio.Event().wait()
+            await asyncio.sleep(0.01)
+            return Action(19),source,generation,10,9
+        self.runtime.control=slow_ack;self.runtime.score=score
+        self.f["game_frame"]+=1;await self.runtime.tick();await asyncio.wait_for(sent.wait(),1)
+        self.f["game_frame"]+=1;await self.runtime.tick()
+        await asyncio.wait_for(second_score.wait(),1)
+        self.assertFalse(ack_gate.is_set());self.assertEqual(self.runtime.combat_stats["sent"],1)
+        ack_gate.set();await asyncio.sleep(0.01)
+        command=next(c for c in self.commands if c["command"]=="action")
+        self.assertEqual(command["hold_frames"],6);self.assertEqual(command["execution_timing"],"start-relative-v1")
+
+    async def test_expired_predictions_are_logged_and_never_refreshed(self):
+        await self.start_planning();self.f["entities"]=[sample_frame()["entities"][0]]
+        gate=asyncio.Event();begun=asyncio.Event()
+        async def score(source,history,generation):
+            begun.set();await gate.wait();await asyncio.sleep(0)
+            return Action(19),source,generation,50,49
+        self.runtime.score=score;self.f["game_frame"]+=1;await self.runtime.tick();await begun.wait()
+        self.f["game_frame"]+=6;await self.runtime.tick();gate.set();await asyncio.sleep(0.01)
+        self.assertGreater(self.runtime.combat_stats["discarded_observation_frame_expired"],0)
+        logs=[json.loads(l) for l in self.runtime.log_path.read_text().splitlines()]
+        self.assertTrue(any(r.get("discard_reason")=="observation_frame_expired" for r in logs))
+        # A newly scored observation may send; the expired observation must never do so.
+        self.assertFalse(any(c["command"]=="action" and c["observation_frame"]==9 for c in self.commands))
+
+    async def test_realistic_delays_keep_combat_input_covered(self):
+        await self.start_planning();self.f["entities"]=[sample_frame()["entities"][0]]
+        base=self.runtime.control;applied_until=-1;coverage=[];predictions=[];stop=asyncio.Event()
+        async def delayed(payload):
+            nonlocal applied_until
+            if payload["command"]=="get_frame":await asyncio.sleep(0.01)
+            if payload["command"]=="action":
+                await asyncio.sleep(0.015) # transport and first game query
+                now=self.f["game_frame"]
+                if now>=payload["valid_until_frame"]:return {"ok":False,"error":"expired"}
+                applied_until=now+payload["hold_frames"]
+                await asyncio.sleep(0.045) # ACK latency overlaps the next prediction
+            return await base(payload)
+        async def score(source,history,generation):
+            predictions.append(time.monotonic());await asyncio.sleep(0.055)
+            return Action(19),source,generation,55,52
+        async def world():
+            for i in range(48):
+                self.f["game_frame"]+=1
+                if i>=10:coverage.append(self.f["game_frame"]<applied_until)
+                await asyncio.sleep(1/30)
+            stop.set()
+        async def polling():
+            while not stop.is_set():await self.runtime.tick();await asyncio.sleep(0.005)
+        self.runtime.control=delayed;self.runtime.score=score
+        await asyncio.gather(world(),polling())
+        self.assertGreater(sum(coverage)/len(coverage),0.9)
+        self.assertEqual(self.runtime.combat_stats["rejected"],0)
+        gaps=[b-a for a,b in zip(predictions,predictions[1:])]
+        self.assertLess(sum(gaps)/len(gaps),0.09)
 
     async def test_extension_tools_are_discoverable_and_callable(self):
         store=KnowledgeStore(Path(self.temp.name)/"knowledge");registry=create_registry(self.runtime,store)

@@ -9,6 +9,7 @@ SHOT_NAMES = ("none", "up", "down", "left", "right")
 ACTION_COUNT = len(MOVES) * len(SHOTS)
 ACTION_VERSION = "move9-shoot5-active-edge-v2"
 MAX_OBSERVATION_AGE_FRAMES = 6
+EXECUTION_TIMING = "start-relative-v1"
 
 def _sign(value: float) -> int:
     value = float(value)
@@ -45,6 +46,7 @@ class Action:
                 "move": {"x": MOVES[move_id][0], "y": MOVES[move_id][1]},
                 "shoot": {"x": SHOTS[shot_id][0], "y": SHOTS[shot_id][1]},
                 "use_active": self.use_active, "hold_frames": self.hold_frames,
+                "execution_timing": EXECUTION_TIMING,
                 "run_id": frame["run_id"], "room_id": frame["room"]["id"],
                 "observation_frame": frame["game_frame"],
                 "valid_until_frame": frame["game_frame"] + MAX_OBSERVATION_AGE_FRAMES}

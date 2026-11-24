@@ -6,7 +6,7 @@
 
 1. 项目 `Start_Recording.cmd` 启动采集桥。
 2. 项目 `Start_Server_Tunnel.cmd` 打开现有 SSH 隧道；在该窗口输入密码，密码不保存在技能中。
-3. 使用已有 Sandboxie 实验环境运行游戏，启用 Isaac Jev Bridge 0.4.1。游戏当前已运行时，控制台执行 `luamod isaac_jev_bridge` 重载一次。随技能的 assets/isaac_jev_bridge 是对应模组，项目实验目录已安装；原 Steam 目录保持原状。
+3. 使用已有 Sandboxie 实验环境运行游戏，启用 Isaac Jev Bridge 0.4.2。游戏当前已运行时，控制台执行 `luamod isaac_jev_bridge` 重载一次。随技能的 assets/isaac_jev_bridge 是对应模组，项目实验目录已安装；原 Steam 目录保持原状。`doctor` 的 `input_timing` 应为 `start-relative-v1`；旧模组会被启动检查拒绝。
 4. 结束旧独立 shadow/AI 客户端，F8 回人工，再取消暂停。
 5. 用工具 setup、doctor 检查，然后 start_autoplay。工具会告诉你缺少哪条通路；对连接问题做修复，不用调试命令增加资源或改变存档。
 

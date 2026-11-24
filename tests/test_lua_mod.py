@@ -106,7 +106,7 @@ class LuaModTests(unittest.TestCase):
     def test_bomb_press_and_edge_are_saved_in_raw_input(self):
         self.step();self.step();self.messages()
         self.lua.execute("HELD[8]=true; CALLBACKS[2]()")
-        self.step();self.step()
+        self.step()
         frame=[p for p in self.messages() if p["type"]=="frame"][-1]
         self.assertTrue(frame["human_input"]["bomb_trigger"])
         self.assertTrue(frame["human_input"]["bomb_pressed"])
@@ -210,6 +210,71 @@ class LuaModTests(unittest.TestCase):
             "observation_frame":current,"valid_until_frame":current+6,
             "run_id":frame["run_id"],"room_id":frame["room"]["id"]})
         self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+
+    def test_fresh_late_action_gets_full_hold_but_cannot_start_after_deadline(self):
+        self.step();self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+        source=int(self.lua.globals().FRAME)
+        self.lua.globals().FRAME=source+4
+        self.send({"command":"action","request_id":"late-full","action_id":20,
+            "move":{"x":1,"y":0},"shoot":{"x":0,"y":0},"use_active":False,"hold_frames":6,
+            "execution_timing":"start-relative-v1","observation_frame":source,"valid_until_frame":source+6,
+            "run_id":"isaac-seed:123","room_id":"1:0:17"})
+        # Accepted at age 4, starts at age 5, runs all six actual frames.
+        for n in range(source+5,source+11):
+            self.lua.globals().FRAME=n
+            self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.lua.globals().FRAME=source+11
+        self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.step();packets=self.messages()
+        start=next(p for p in packets if p.get("event")=="action_started")
+        self.assertEqual(start["stop_frame"]-start["game_frame"],6)
+        self.assertTrue(any(p.get("event")=="action_ended" and p.get("reason")=="hold_finished" for p in packets))
+        source=int(self.lua.globals().FRAME);self.lua.globals().FRAME=source+5
+        self.send({"command":"action","request_id":"too-late-to-start","action_id":20,
+            "move":{"x":1,"y":0},"shoot":{"x":0,"y":0},"use_active":False,"hold_frames":6,
+            "execution_timing":"start-relative-v1","observation_frame":source,"valid_until_frame":source+6,
+            "run_id":"isaac-seed:123","room_id":"1:0:17"})
+        self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.step()
+        self.assertTrue(any(p.get("event")=="action_discarded" and p.get("reason")=="expired_before_start" for p in self.messages()))
+
+    def test_input_query_telemetry_and_replacement_show_actual_frames(self):
+        self.step();self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+        current=int(self.lua.globals().FRAME)
+        action={"command":"action","request_id":"first","action_id":20,
+            "move":{"x":1,"y":0},"shoot":{"x":0,"y":0},"use_active":False,"hold_frames":6,
+            "execution_timing":"start-relative-v1","observation_frame":current,"valid_until_frame":current+6,
+            "run_id":"isaac-seed:123","room_id":"1:0:17"}
+        self.send(action);n=int(self.lua.globals().FRAME)
+        self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,2,1)"))
+        self.step();latest=[p for p in self.messages() if p.get("type")=="frame"][-1]
+        self.assertEqual(latest["game_frame"],n) # Same-frame telemetry was already flushed.
+        applied=latest["applied_controls"]
+        self.assertEqual(applied["game_frame"],n);self.assertEqual(applied["requests"][0]["pressed"],{"1":True})
+        current=int(self.lua.globals().FRAME)
+        self.send({**action,"request_id":"second","action_id":0,"move":{"x":0,"y":0},
+            "observation_frame":current,"valid_until_frame":current+6})
+        self.assertFalse(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.step();packets=self.messages()
+        self.assertTrue(any(p.get("event")=="action_ended" and p.get("reason")=="replaced" and p.get("request_id")=="first" for p in packets))
+        latest=[p for p in packets if p.get("type")=="frame"][-1]
+        self.assertEqual(latest["applied_controls"]["requests"][0]["action_id"],0)
+
+    def test_delayed_continuous_commands_cover_input_without_unbounded_hold(self):
+        self.step();self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+        covered=[]
+        for i in range(40):
+            now=int(self.lua.globals().FRAME)
+            if i%3==0:
+                self.send({"command":"action","request_id":str(i),"action_id":20,
+                    "move":{"x":1,"y":0},"shoot":{"x":0,"y":0},"use_active":False,"hold_frames":6,
+                    "execution_timing":"start-relative-v1","observation_frame":now-4,"valid_until_frame":now+2,
+                    "run_id":"isaac-seed:123","room_id":"1:0:17"})
+            else:self.step()
+            covered.append(bool(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)")))
+        self.assertTrue(all(covered))
+        self.lua.globals().FRAME=int(self.lua.globals().FRAME)+6
+        self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
 
     def test_pause_menu_and_options_relinquish_ai_and_record_cause(self):
         self.step()
