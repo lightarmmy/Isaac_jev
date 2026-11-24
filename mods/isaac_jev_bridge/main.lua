@@ -18,6 +18,7 @@ local appliedControls = nil
 local EXECUTION_TIMING = "start-relative-v1"
 local serverStatus, agentDisplay = {state="unknown"}, {agent_state="offline"}
 local displayExpires, noticeExpires, notice, hudVisible = 0, 0, "", true
+local HUD_X, HUD_Y = 10, 155
 
 local function arr(t) return setmetatable(t or {}, {__json_array=true}) end
 local function read(o, k, default)
@@ -500,13 +501,13 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER,function()
         or state=="thinking" and "Thinking..." or state=="offline" and "dsh service: offline" or "dsh: waiting"
     local phase=display.controller_phase=="combat" and "Jev combat" or display.controller_phase=="navigation" and "Navigation" or hudText(display.controller_phase)
     local serverLabel=sock and Isaac.GetTime()<displayExpires and serverStatus.state or "unknown"
-    Isaac.RenderText("SERVER: "..hudText(serverLabel).." | "..phase,10,69,0.6,0.85,1,1)
-    Isaac.RenderText(toolLine,10,81,0.95,0.8,1,1)
+    Isaac.RenderText("SERVER: "..hudText(serverLabel).." | "..phase,HUD_X,HUD_Y+14,0.6,0.85,1,1)
+    Isaac.RenderText(toolLine,HUD_X,HUD_Y+26,0.95,0.8,1,1)
     local detail=display.goal and display.goal~="" and (hudText(display.goal).." | "..hudText(display.navigation_stage)) or hudText(display.summary)
-    if detail~="" then Isaac.RenderText(detail,10,93,0.9,0.9,0.9,1) end
+    if detail~="" then Isaac.RenderText(detail,HUD_X,HUD_Y+38,0.9,0.9,0.9,1) end
     local message=Isaac.GetTime()<noticeExpires and notice or serverStatus.error
-    if message then Isaac.RenderText(hudText(message),10,105,1,0.7,0.4,1) end
-    Isaac.RenderText("Isaac Jev: "..mode.." | "..(sock and "CONNECTED" or lastError).." | "..rec.." | F8: HUMAN",10,55,1,1,1,1)
+    if message then Isaac.RenderText(hudText(message),HUD_X,HUD_Y+50,1,0.7,0.4,1) end
+    Isaac.RenderText("Isaac Jev: "..mode.." | "..(sock and "CONNECTED" or lastError).." | "..rec.." | F8: HUMAN",HUD_X,HUD_Y,1,1,1,1)
 end)
 mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
     if mode~="ai" or not command or not sock or Game():IsPaused() then return nil end
