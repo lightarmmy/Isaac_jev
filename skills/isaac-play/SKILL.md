@@ -53,6 +53,8 @@ F8、暂停、断线和死亡会撤销自动会话。收到 autoplay=false / hum
 
 从工具提供的物品类型、可见 ID/名称查 `get_item_details`。优先批量查当前装备及新宝箱房/商店候选。未知道具不通过内部 ID 猜测其身份。
 
+游戏字段 `item_category` / `is_active` 区分道具类型：`item_type=3` 是主动，`4` 是跟班（例如 Leech），不要把跟班误判成主动。拾取内容消失后，`execution.navigation.stage=awaiting_pickup_confirmation` 表示已停止靠近、正在等库存确认，最多 90 个推进帧且受任务总超时约束；继续等待当前任务，勿重复提交。晚确认仍是 completed，附 `confirmation.delay_frames`。
+
 未命中时：`wiki_search` 返回灰机 Wiki 搜索入口；用 dsh 的网页搜索/浏览器工具读 https://isaac.huijiwiki.com/ 对应正文。`wiki_read` 给出读取要求。核对类别、ID、适用版本，提取关键效果、条件、副作用、重要组合，用 `knowledge_upsert` 保存带来源和短正文依据的摘要。格式见 [knowledge.md](references/knowledge.md)。
 
 网站可能要求 JavaScript/Cookie。验证页、未读正文、搜索摘要分别处理；读不到的事实保持 unknown/partial，并向用户说明。基础走门/普通拾取可以继续，未知道具可暂存或在说明未知后做选择。游戏内实际价格/属性优先于百科默认值。

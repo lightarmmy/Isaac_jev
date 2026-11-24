@@ -15,7 +15,7 @@ from .navigation import Navigator
 from .remote import PolicyClient, validate_description, prediction_action
 from .rooms import combat_active
 from .skill_state import GameMemory
-from .pickups import acquisition_confirmed, pickup_consumed
+from .pickups import acquisition_confirmed, pickup_consumed, PICKUP_CONFIRMATION_FRAMES
 
 
 class GameRuntime:
@@ -91,6 +91,8 @@ class GameRuntime:
         result["actions"]=self.actions() if result.get("phase")=="planning" else []
         navigator=(self.task or {}).get("navigator")
         if navigator and hasattr(navigator,"describe"):result["execution"]["navigation"]=navigator.describe()
+        if (self.task or {}).get("stage")=="awaiting_pickup_confirmation":
+            result["execution"]["navigation"]={**result["execution"].get("navigation",{}),"stage":"awaiting_pickup_confirmation"}
         return result
 
     async def start(self,wait_seconds=20):
@@ -164,7 +166,7 @@ class GameRuntime:
             "origin_room":frame["room"]["id"],"started":time.monotonic(),"timeout_s":timeout_s,
             "before":copy.deepcopy(frame["player"]),"navigator":None,"arrived":False,"last_key":None}
         self.phase="navigation"
-        await self.event("task_started",task_id=self.task["task_id"],target=target,reason=reason[:1000])
+        await self.event("task_started",task_id=self.task["task_id"],target=target,reason=reason[:1000],before=self.task["before"])
         return {"task_id":self.task["task_id"],"status":"running","event_cursor":self.cursor}
 
     async def wait(self,event_cursor,timeout_s=20):
@@ -181,12 +183,18 @@ class GameRuntime:
         if action.use_active:raise ValueError("Active item use is not enabled in this skill")
         started=time.perf_counter();combat=self.phase=="combat"
         identity={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"observation_frame":frame["game_frame"]}
-        self.diagnostic("action_sent",**identity,action_id=action.action_id,hold_frames=action.hold_frames,controller_phase=self.phase)
+        task_id=(self.task or {}).get("task_id");navigation=None
+        if not combat and self.task:
+            navigator=self.task.get("navigator")
+            if navigator and hasattr(navigator,"describe"):navigation=navigator.describe()
+            if self.task.get("stage")=="awaiting_pickup_confirmation":navigation={**(navigation or {}),"stage":"awaiting_pickup_confirmation"}
+        self.diagnostic("action_sent",**identity,action_id=action.action_id,hold_frames=action.hold_frames,controller_phase=self.phase,
+            task_id=task_id,navigation=navigation,player_position=frame["player"]["position"],player_velocity=frame["player"].get("velocity"))
         if combat:self.combat_stats["sent"]+=1
         result=await self.control({**action.as_command(frame),"lease_id":self.lease["id"]})
         ack=result.get("ack") or {};reason=result.get("error") or ack.get("reason")
         self.diagnostic("action_ack",**identity,request_id=ack.get("request_id"),ok=bool(result.get("ok")),reason=reason,
-            ack_frame=ack.get("game_frame"),ack_ms=round((time.perf_counter()-started)*1000,3),controller_phase="combat" if combat else "navigation")
+            ack_frame=ack.get("game_frame"),ack_ms=round((time.perf_counter()-started)*1000,3),controller_phase="combat" if combat else "navigation",task_id=task_id)
         if combat:self.combat_stats["accepted" if result.get("ok") else "rejected"]+=1
         if not result.get("ok"):self.last_error=reason
         else:self.last_error=None
@@ -249,7 +257,7 @@ class GameRuntime:
         if not task:return
         await self.halt_navigation()
         await self.event("task_"+status,task_id=task["task_id"],target=task["target"],reason=reason,
-            before=task["before"],after=copy.deepcopy(self.memory.frame["player"]),failure=task.get("failure"))
+            before=task["before"],after=copy.deepcopy(self.memory.frame["player"]),failure=task.get("failure"),confirmation=task.get("confirmation"))
         self.task=None;self.phase="planning"
         self.last_decision=self.memory.decision_id()
         await self.event("planning_required",decision_id=self.memory.decision_id())
@@ -283,16 +291,26 @@ class GameRuntime:
             consumed=pickup_consumed(target,entity,task["before"],frame["player"])
             confirmed=acquisition_confirmed(target,task["before"],frame["player"])
             if consumed and confirmed:
-                await self.finish_task("completed");return
+                consumed_frame=task.get("consumed_frame",frame["game_frame"])
+                delay=frame["game_frame"]-consumed_frame
+                task["confirmation"]={"consumed_frame":consumed_frame,"confirmed_frame":frame["game_frame"],"delay_frames":delay,"late":delay>18}
+                await self.finish_task("completed","late confirmation" if delay>18 else "");return
             if consumed:
                 # The same UID may now be an empty pedestal or the previous
                 # active item. Stop approaching while inventory telemetry catches up.
-                task.setdefault("consumed_frame",frame["game_frame"])
+                if "consumed_frame" not in task:
+                    task["consumed_frame"]=frame["game_frame"]
+                    self.diagnostic("pickup_consumed",task_id=task["task_id"],run_id=frame["run_id"],room_id=frame["room"]["id"],
+                        game_frame=frame["game_frame"],stage="awaiting_pickup_confirmation",limit_frames=PICKUP_CONFIRMATION_FRAMES)
+                task["stage"]="awaiting_pickup_confirmation"
+                task["confirmation"]={"consumed_frame":task["consumed_frame"],"waited_frames":frame["game_frame"]-task["consumed_frame"],"limit_frames":PICKUP_CONFIRMATION_FRAMES}
                 await self.halt_navigation()
-                if frame["game_frame"]-task["consumed_frame"]>=18:
-                    await self.finish_task("blocked","target consumed without confirmed acquisition after telemetry grace")
+                deadline=time.monotonic()-task["started"]>task["timeout_s"]
+                if frame["game_frame"]-task["consumed_frame"]>=PICKUP_CONFIRMATION_FRAMES or deadline:
+                    task["failure"]={"reason_code":"pickup_confirmation_timeout","recoverable":True,"consumed":True}
+                    await self.finish_task("blocked","target consumed without confirmed acquisition at confirmation/task deadline")
                 return
-            task.pop("consumed_frame",None);task.pop("input_stopped",None)
+            task.pop("consumed_frame",None);task.pop("input_stopped",None);task.pop("stage",None);task.pop("confirmation",None)
         elif kind in self.goal_handlers:
             _,factory,complete=self.goal_handlers[kind]
             if complete(self.memory,task):await self.finish_task("completed");return

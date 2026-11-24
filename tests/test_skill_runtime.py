@@ -16,6 +16,7 @@ from isaac_jev.skill_service import create_registry
 from isaac_jev.skill_state import GameMemory
 from isaac_jev.mock import sample_frame
 from isaac_jev.bridge import BridgeServer
+from isaac_jev.pickups import PICKUP_CONFIRMATION_FRAMES
 
 
 def frame(n=0):
@@ -36,6 +37,14 @@ def pickup(uid="item",shop=False,variant=100):
 
 
 class StateAndNavigationTests(unittest.TestCase):
+    def test_game_item_categories_distinguish_familiar_from_active(self):
+        f=frame();f["entities"]=[{**pickup(),"subtype":270,"pickup_item_type":4}]
+        mem=GameMemory();mem.update({"frame":f,"status":{"last_frame_age_ms":0}})
+        self.assertEqual(mem.pickups()[0]["item_category"],"familiar")
+        self.assertFalse(mem.pickups()[0]["is_active"])
+        f["entities"][0]["pickup_item_type"]=3;mem.update({"frame":f,"status":{}})
+        self.assertTrue(mem.pickups()[0]["is_active"])
+
     def test_hidden_nodes_and_blind_item_identity_do_not_leak(self):
         f=frame();f["entities"]=[{**pickup(),"pickup_blind":True}]
         mem=GameMemory();mem.update({"frame":f,"status":{"connected":True,"last_frame_age_ms":0}})
@@ -148,7 +157,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         await self.start_planning()
         await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
         self.f["entities"]=[];self.f["game_frame"]+=1;await self.runtime.tick()
-        for _ in range(18):self.f["game_frame"]+=1;await self.runtime.tick()
+        for _ in range(PICKUP_CONFIRMATION_FRAMES):self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertTrue(any(e["event"]=="task_blocked" for e in self.runtime.memory.events))
         self.f["entities"]=[pickup()];self.f["game_frame"]+=1;await self.runtime.tick()
         await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
@@ -159,7 +168,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_empty_pedestal_same_uid_completes_before_timeout_and_stops_input(self):
         self.f["room"]["type"]=4;self.f["entities"]=[pickup()]
         await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item",timeout_s=60)
-        self.runtime.task["started"]-=61
+        self.runtime.task["started"]-=self.runtime.task["timeout_s"]+1
         self.f["entities"][0]["subtype"]=0
         self.f["player"]["inventory"]["collectibles"]=[{"id":1,"count":1}]
         self.f["game_frame"]+=1;await self.runtime.tick()
@@ -184,7 +193,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.f["room"]["type"]=4;self.f["entities"]=[pickup()]
         await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
         self.f["entities"][0]["subtype"]=0;self.f["player"]["inventory"]["collectibles"]=[{"id":2}]
-        for _ in range(19):self.f["game_frame"]+=1;await self.runtime.tick()
+        for _ in range(PICKUP_CONFIRMATION_FRAMES+1):self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertFalse(any(e["event"]=="task_completed" for e in self.runtime.memory.events))
         self.assertTrue(any(e["event"]=="task_blocked" for e in self.runtime.memory.events))
 
@@ -195,6 +204,44 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.f["entities"][0]["subtype"]=45;self.f["player"]["active"]={"id":58,"charge":3}
         self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertIsNone(self.runtime.task);self.assertTrue(any(e["event"]=="task_completed" for e in self.runtime.memory.events))
+
+    async def test_leech_and_trinket_delayed_confirmation(self):
+        self.f["room"]["type"]=4
+        for variant,item_id,delay in ((100,270,37),(350,6,36)):
+            with self.subTest(variant=variant):
+                self.f["entities"]=[{**pickup(variant=variant),"subtype":item_id}]
+                await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
+                self.f["entities"]=[];self.f["game_frame"]+=1;await self.runtime.tick()
+                consumed_frame=self.f["game_frame"];command_count=len(self.commands)
+                for _ in range(delay-1):
+                    self.f["game_frame"]+=1;await self.runtime.tick()
+                    self.assertIsNotNone(self.runtime.task)
+                    self.assertEqual(self.runtime.observe()["execution"]["navigation"]["stage"],"awaiting_pickup_confirmation")
+                self.assertFalse(any(c["command"]=="action" for c in self.commands[command_count:]))
+                if variant==100:self.f["player"]["inventory"]["collectibles"]=[{"id":item_id,"count":1}]
+                else:self.f["player"]["inventory"]["trinkets"]=[item_id,0]
+                self.f["game_frame"]+=1;await self.runtime.tick()
+                completed=[e for e in self.runtime.memory.events if e["event"]=="task_completed"][-1]
+                self.assertEqual(completed["reason"],"late confirmation")
+                self.assertEqual(completed["confirmation"]["delay_frames"],delay)
+                self.assertEqual(completed["confirmation"]["consumed_frame"],consumed_frame)
+                await self.runtime.stop()
+
+    async def test_confirmation_deadline_and_real_timeout(self):
+        self.f["room"]["type"]=4
+        self.f["entities"]=[pickup()]
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
+        self.f["entities"]=[];self.f["game_frame"]+=1;await self.runtime.tick()
+        self.f["game_frame"]+=PICKUP_CONFIRMATION_FRAMES-1;await self.runtime.tick()
+        self.assertIsNotNone(self.runtime.task)
+        self.f["game_frame"]+=1;await self.runtime.tick()
+        blocked=[e for e in self.runtime.memory.events if e["event"]=="task_blocked"][-1]
+        self.assertEqual(blocked["failure"]["reason_code"],"pickup_confirmation_timeout")
+        self.f["entities"]=[pickup()];self.f["game_frame"]+=1;await self.runtime.tick()
+        await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
+        self.runtime.task["started"]-=self.runtime.task["timeout_s"]+1
+        self.f["entities"]=[];self.f["game_frame"]+=1;await self.runtime.tick()
+        self.assertIsNone(self.runtime.task)
 
     async def test_navigation_momentum_recovery_keeps_task_running(self):
         await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"door-0")

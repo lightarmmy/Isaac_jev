@@ -1,5 +1,8 @@
 """Separate pickup contents from persistent pedestal entities and verify acquisition."""
 
+PICKUP_CONFIRMATION_FRAMES = 90
+ITEM_CATEGORIES = {1:"passive",2:"trinket",3:"active",4:"familiar"}
+
 
 def empty_pedestal(entity):
     return entity.get("kind")=="pickup" and entity.get("variant")==100 and entity.get("subtype")==0

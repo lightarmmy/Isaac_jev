@@ -5,7 +5,7 @@ import hashlib
 import json
 from .navigation import is_shop_item
 from .rooms import combat_active
-from .pickups import pickup_available
+from .pickups import pickup_available, ITEM_CATEGORIES
 
 ROOM_TYPES={1:"normal",2:"shop",3:"error",4:"treasure",5:"boss",6:"miniboss",7:"secret",8:"super_secret",9:"arcade",10:"curse",11:"challenge",
     12:"library",13:"sacrifice",14:"devil",15:"angel",16:"dungeon",17:"boss_rush",18:"isaacs",19:"barren",20:"chest",21:"dice",
@@ -65,6 +65,8 @@ class GameMemory:
                 "item_id":None if e.get("pickup_blind") else e.get("subtype"),
                 "name":e.get("pickup_name") or ("unknown collectible" if kind=="collectible" else kind),
                 "short_description":e.get("pickup_description"),"quality":e.get("pickup_quality"),"item_type":e.get("pickup_item_type"),
+                "item_category":ITEM_CATEGORIES.get(e.get("pickup_item_type")),
+                "is_active":e.get("pickup_item_type")==3 if e.get("pickup_item_type") is not None else None,
                 "blind":bool(e.get("pickup_blind")),"shop_item":is_shop_item(e),"price":e.get("pickup_price"),
                 "options_group":e.get("pickup_options",0),"position":e["position"],"wait":e.get("pickup_wait",0)})
         return result

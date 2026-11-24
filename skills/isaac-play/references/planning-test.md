@@ -30,6 +30,16 @@
 
 原始录像始终保留战斗和非战斗状态。结合 .local/isaac-skill/events.jsonl 的 task_started/task_completed/task_blocked、navigation_path、combat_started/planning_required 与录像识别阶段。某个房间几秒后已 clear 不能证明它本来没有敌人；按事件和连续状态确认。
 
+复盘使用随技能提供的只读统计脚本，避免临时重写口径：
+
+```text
+python <本技能目录>/scripts/audit_navigation.py <项目目录>/recordings/<录像目录> --events <项目目录>/.local/isaac-skill/events.jsonl --run-id isaac-seed:... --output <项目目录>/.local/isaac-skill/navigation-audit.json
+```
+
+可加 `--task-id <UUID>` 查单个任务。它按任务、控制阶段与敌方实体拆分 navigation/combat/confirmation/settling_or_handoff；路程只比较连续的同房间、同阶段帧，跨门跳变、长暂停和丢帧段均排除。缺失边界间隔使 phase_seconds 之和可能小于总任务耗时。不要选“帧数最多的房间段”代表导航：进房后的长战斗往往正是最大段。分别报告命令方向反转和位移反转；低效率或反转数本身不能证明蛇形走门。旧日志无 task_id 时会明确标注按任务时间推断，实际输入缺乏归属时 coverage 为 unknown。
+
+新日志的每条 action_sent 记录 task_id、navigation.stage、玩家坐标和速度；拾取等待另有 pickup_consumed，任务完成另有 confirmation。内容消失后停止导航，保持任务至实际库存确认，最多 90 个推进帧并受总任务超时约束。completed(reason="late confirmation") 算成功；未确认的 blocked 需结合后续库存查清，不能直接当物品未获得。
+
 最终报告给出每项“通过/失败/未测”、实际次数和证据；未达到的测试项解释是本层没有该场景、路径失败还是战斗阻塞。不要声称完成了整层或某项功能而没有对应证据。
 
 拾取后 UID 可能仍是空台座或被交换下来的主动道具。以道具/资源实际变化及内容变化核对，不能把实体仍存在当作尚未拾取；原始录像中首次获得的时间与任务结束时间分别记录，避免把完成判定错误后的无效移动算成取物速度。同一位置连续出现相同的起点重叠/无法起步错误时，先只读诊断；更换远端目标不能解决起点被困的问题。
