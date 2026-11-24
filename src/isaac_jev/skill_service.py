@@ -15,7 +15,7 @@ SERVICE_ID="isaac-play-tools-v1"
 
 
 class ToolRegistry:
-    def __init__(self):self.tools={}
+    def __init__(self,presentation=None):self.tools={};self.presentation=presentation
     def register(self,name,description,properties,required,handler):
         if name in self.tools:raise ValueError("Duplicate tool: "+name)
         self.tools[name]=({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":False}},handler)
@@ -32,11 +32,14 @@ class ToolRegistry:
             if kind in types and (not isinstance(value,types[kind]) or (kind in {"integer","number"} and type(value) is bool)):
                 raise ValueError("Invalid type for "+key)
             if "enum" in prop and value not in prop["enum"]:raise ValueError("Invalid value for "+key)
-        return await handler(**args)
+        token=self.presentation.begin(name) if self.presentation and name!="report_agent_status" else None
+        try:return await handler(**args)
+        finally:
+            if token:self.presentation.end(token)
 
 
 def create_registry(runtime,store):
-    registry=ToolRegistry()
+    registry=ToolRegistry(runtime.presentation)
     def add(name,description,props,required,fn):registry.register(name,description,props,required,fn)
     async def observe_game(detail="summary"):return runtime.observe(detail)
     async def map_tool(format="both"):
@@ -88,6 +91,8 @@ def create_registry(runtime,store):
     add("wait_for_decision","Wait for a new execution/combat/planning event, at most 25 seconds.",{"event_cursor":integer,"timeout_s":number},["event_cursor"],runtime.wait)
     add("get_execution_status","Read task status, controller phase and latest event cursor.",{},[],status_tool)
     add("stop_autoplay","Cancel all automatic input/tasks and release the current lease.",{"reason":string},[],runtime.stop)
+    add("report_agent_status","Show a short public thinking/idle status on the game HUD; does not control the game.",
+        {"state":{"type":"string","enum":["thinking","idle"]},"summary":string},["state"],runtime.report_agent_status)
     return registry
 
 

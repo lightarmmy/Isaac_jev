@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
+link = ["paramiko==4.0.0"]
 train = ["torch>=2.6,<3", "transformers>=5.3,<5.4", "safetensors>=0.5", "numpy>=1.26"]
 
 [project.scripts]

@@ -21,7 +21,7 @@ def doctor(game: Path):
     print("Bridge port: localhost:9527; F8 always returns manual control.")
 
 async def serve(args):
-    hub=BridgeServer(port=args.port,record_root=Path(args.record) if args.record else None,status_path=Path(args.status_file),recording_enabled=not args.no_record,record_purpose=args.record_purpose)
+    hub=BridgeServer(port=args.port,record_root=Path(args.record) if args.record else None,status_path=Path(args.status_file),recording_enabled=not args.no_record,record_purpose=args.record_purpose,project_root=Path.cwd())
     await hub.start()
     print(f"Bridge listening on 127.0.0.1:{hub.port}; awaiting Isaac mod.",flush=True)
     if hub.recorder:print("Recording:",hub.recorder.path.resolve(),flush=True)

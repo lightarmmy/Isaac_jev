@@ -15,7 +15,7 @@ MOCK_GAME=r'''
 TIME=3000; FRAME=0; INCOMING={}; SENT={}; CALLBACKS={}; HELD={}; PAUSED=false; PAUSE_MENU_STATE=0; ROOM_INDEX=17
 PauseMenu={GetState=function()return PAUSE_MENU_STATE end}
 REPENTOGON=true
-ModCallbacks={MC_PRE_UPDATE=1026,MC_POST_GAME_STARTED=15,MC_POST_RENDER=2,MC_INPUT_ACTION=13,MC_ENTITY_TAKE_DMG=11,MC_USE_ITEM=3,MC_PRE_GAME_EXIT=17}
+ModCallbacks={MC_PRE_UPDATE=1026,MC_POST_GAME_STARTED=15,MC_POST_RENDER=2,MC_INPUT_ACTION=13,MC_ENTITY_TAKE_DMG=11,MC_USE_ITEM=3,MC_PRE_GAME_EXIT=17,MC_EXECUTE_CMD=22}
 ButtonAction={ACTION_LEFT=0,ACTION_RIGHT=1,ACTION_UP=2,ACTION_DOWN=3,ACTION_SHOOTLEFT=4,ACTION_SHOOTRIGHT=5,ACTION_SHOOTUP=6,ACTION_SHOOTDOWN=7,ACTION_ITEM=9,ACTION_BOMB=8,ACTION_PILLCARD=10}
 InputHook={IS_ACTION_PRESSED=0,IS_ACTION_TRIGGERED=1,GET_ACTION_VALUE=2}
 ActiveSlot={SLOT_PRIMARY=0};EntityType={ENTITY_PLAYER=1};EntityFlag={FLAG_FRIENDLY=1,FLAG_CHARM=2};Keyboard={KEY_F8=119}
@@ -78,6 +78,31 @@ class LuaModTests(unittest.TestCase):
         return [json.loads(l) for l in text.splitlines() if l]
 
     def step(self):self.lua.eval("step()")
+
+    def test_console_connect_and_record_commands_do_not_change_input(self):
+        self.step();self.messages()
+        self.lua.eval('CALLBACKS[22]')(None,'jev_connect','10.1.2.3:31203 "dummy password" root')
+        messages=self.messages();request=next(m for m in messages if m['type']=='management_request')
+        self.assertEqual(request['host'],'10.1.2.3');self.assertEqual(request['password'],'dummy password')
+        self.assertEqual(request['port'],31203)
+        self.assertFalse(any(m.get('type')=='frame' and 'password' in m for m in messages))
+        self.lua.eval('CALLBACKS[22]')(None,'jev_record','off')
+        request=next(m for m in self.messages() if m['type']=='management_request')
+        self.assertIs(request['enabled'],False)
+        self.assertIsNone(self.lua.eval('CALLBACKS[13](nil,PLAYER,0,1)'))
+
+    def test_hud_reports_tools_thinking_combat_and_expiry(self):
+        self.step();self.messages()
+        self.lua.execute('HUD_LINES={};Isaac.RenderText=function(text)table.insert(HUD_LINES,text)end')
+        for state,tool,expected in [('tool','get_floor_map','Tool: get_floor_map'),('thinking','','Thinking...'),
+                                    ('recent_tool','observe_game','Last tool: observe_game')]:
+            self.lua.globals().INCOMING[1]=json.dumps({'protocol_version':1,'type':'presentation_status','ttl_ms':3500,
+                'server':{'state':'ready'},'display':{'agent_state':state,'tool':tool,'controller_phase':'combat'}})+'\n'
+            self.step();self.lua.execute('HUD_LINES={};CALLBACKS[2]()')
+            lines=list(self.lua.globals().HUD_LINES.values())
+            self.assertIn(expected,lines);self.assertTrue(any('Jev combat' in line for line in lines))
+        self.lua.execute('TIME=TIME+6000;HUD_LINES={};CALLBACKS[2]()')
+        self.assertIn('dsh service: offline',list(self.lua.globals().HUD_LINES.values()))
 
     def send(self,command):
         command.update(protocol_version=1,type="command")

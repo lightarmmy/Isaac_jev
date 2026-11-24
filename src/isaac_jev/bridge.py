@@ -12,7 +12,7 @@ from .recording import SessionRecorder
 from .rooms import RoomTimeline
 
 class BridgeServer:
-    def __init__(self, host="127.0.0.1", port=9527, record_root: Path | None = None, status_path: Path | None = None, recording_enabled=True, record_purpose="demonstration"):
+    def __init__(self, host="127.0.0.1", port=9527, record_root: Path | None = None, status_path: Path | None = None, recording_enabled=True, record_purpose="demonstration", project_root=None, server_link=None):
         if host not in {"127.0.0.1", "localhost"}:
             raise ValueError("this bridge binds to loopback only")
         self.host, self.port = host, port
@@ -36,6 +36,14 @@ class BridgeServer:
         self.server = None
         self.control_lease = None
         self.control_epoch = 0
+        from .server_link import ServerLink
+        self.server_link=server_link or (ServerLink(project_root) if project_root else None)
+        self.presentation={};self.presentation_received=0
+
+    def presentation_message(self):
+        display=self.presentation if time.monotonic()-self.presentation_received<3 else {"agent_state":"offline","summary":"dsh tool service offline"}
+        return {"protocol_version":PROTOCOL_VERSION,"type":"presentation_status","display":display,
+                "server":self.server_link.status() if self.server_link else {"state":"unmanaged","ready":False},"ttl_ms":3500}
 
     def revoke_control(self):
         self.control_lease=None;self.control_epoch+=1
@@ -74,7 +82,8 @@ class BridgeServer:
                 "recording_dropped": self.recorder.dropped if self.recorder else 0,
                 "recording_error": self.recorder.error if self.recorder else None,
                 "last_error": self.last_error,"control_leases_supported":True,
-                "control_lease":self.control_lease,"control_epoch":self.control_epoch}
+                "control_lease":self.control_lease,"control_epoch":self.control_epoch,
+                "server_link":self.server_link.status() if self.server_link else None}
 
     async def start(self):
         self.server = await asyncio.start_server(self._client, self.host, self.port, limit=MAX_MESSAGE_BYTES + 1)
@@ -111,6 +120,17 @@ class BridgeServer:
                 if self.mod_writer is not writer:break
                 try:
                     msg = decode(line)
+                    if msg.get("type")=="management_request":
+                        # Intercept before the raw recorder. Never persist or echo
+                        # credentials, including on failed/unknown requests.
+                        operation=msg.get("operation")
+                        try:result=await self.management(operation,msg)
+                        except (ValueError,TypeError):result={"ok":False,"error":"Invalid game-link command arguments"}
+                        msg=None
+                        writer.write(encode({"protocol_version":PROTOCOL_VERSION,"type":"management_result",
+                            "operation":operation if operation in {"server_connect","server_disconnect","server_status","recording"} else "unknown",**result}))
+                        writer.write(encode(self.recording_message()));writer.write(encode(self.presentation_message()))
+                        await writer.drain();continue
                     if msg.get("type") == "frame":
                         validate_frame(msg)
                         key = (msg["run_id"], msg["game_frame"])
@@ -176,10 +196,32 @@ class BridgeServer:
             except ConnectionError:
                 pass
 
+    async def management(self,operation,payload):
+        if operation=="recording":
+            enabled=payload.get("enabled")
+            if enabled=="toggle":enabled=not self.recording_enabled
+            if type(enabled) is not bool:raise ValueError("Use on/off/toggle")
+            if enabled and self.recording_enabled:return {"ok":True,"message":"Recording already ON"}
+            result=await self.control({"command":"rotate_recording" if enabled else "stop_recording"})
+            return {"ok":result["ok"],"message":"Recording "+("ON" if enabled else "OFF; saved") if result["ok"] else result.get("error","Recording failed")}
+        if operation=="server_status":
+            status=self.server_link.status() if self.server_link else {"state":"unmanaged"}
+            return {"ok":True,"server":status,"message":"Server link: "+status["state"]}
+        if not self.server_link:return {"ok":False,"error":"Start updated bridge using Start_Game_Link.cmd"}
+        if operation=="server_connect":return self.server_link.begin(payload)
+        if operation=="server_disconnect":return await self.server_link.disconnect()
+        return {"ok":False,"error":"Unknown game-link command"}
+
     async def control(self, payload: dict) -> dict:
         if not isinstance(payload, dict):
             return {"ok": False, "error": "control payload must be an object"}
         operation = payload.get("command")
+        if operation=="set_presentation":
+            fields=payload.get("display")
+            if not isinstance(fields,dict):return {"ok":False,"error":"Missing display fields"}
+            self.presentation={k:str(v)[:160] if isinstance(v,str) else v for k,v in fields.items()
+                if k in {"agent_state","tool","summary","controller_phase","goal","navigation_stage","autoplay"} and isinstance(v,(str,bool))}
+            self.presentation_received=time.monotonic();return {"ok":True}
         if operation=="acquire_control":
             if self.control_lease:return {"ok":False,"error":"another controller owns input"}
             if not self.latest or not self.mod_writer or self.latest.get("mode")!="manual" or not self.last_received or time.monotonic()-self.last_received>0.2:
@@ -274,6 +316,7 @@ class BridgeServer:
 
     async def publish_status(self):
         while True:
+            if self.server_link:await self.server_link.refresh()
             data = self.status()
             if self.status_path:
                 self.status_path.parent.mkdir(parents=True, exist_ok=True)
@@ -283,11 +326,13 @@ class BridgeServer:
             if self.mod_writer and not self.mod_writer.is_closing():
                 try:
                     self.mod_writer.write(encode(self.recording_message()))
+                    self.mod_writer.write(encode(self.presentation_message()))
                     await self.mod_writer.drain()
                 except ConnectionError:pass
             await asyncio.sleep(1)
 
     async def close(self):
+        if self.server_link:await self.server_link.close()
         if self.mod_writer:
             self.mod_writer.close()
         if self.server:

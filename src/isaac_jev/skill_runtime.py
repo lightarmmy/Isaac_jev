@@ -16,6 +16,7 @@ from .remote import PolicyClient, validate_description, prediction_action
 from .rooms import combat_active
 from .skill_state import GameMemory
 from .pickups import acquisition_confirmed, pickup_consumed, PICKUP_CONFIRMATION_FRAMES
+from .presentation import AgentPresentation
 
 
 class GameRuntime:
@@ -31,6 +32,7 @@ class GameRuntime:
         self.policy_lock=asyncio.Lock()
         self.last_agent_contact=time.monotonic()
         self.last_decision=None
+        self.presentation=AgentPresentation()
         self.log_path=self.root/".local/isaac-skill/events.jsonl";self.log_path.parent.mkdir(parents=True,exist_ok=True)
 
     async def control(self,payload):return await request_control(payload,port=self.bridge_port)
@@ -93,7 +95,21 @@ class GameRuntime:
         if navigator and hasattr(navigator,"describe"):result["execution"]["navigation"]=navigator.describe()
         if (self.task or {}).get("stage")=="awaiting_pickup_confirmation":
             result["execution"]["navigation"]={**result["execution"].get("navigation",{}),"stage":"awaiting_pickup_confirmation"}
+        result["agent_display"]=self.presentation.snapshot()
         return result
+
+    async def report_agent_status(self,state,summary=""):
+        self.presentation.set(state,summary);return {"ok":True,"display":self.presentation.snapshot()}
+
+    async def publish_presentation(self):
+        while True:
+            task=self.task or {};navigator=task.get("navigator")
+            stage=task.get("stage") or (navigator.describe().get("stage","") if navigator and hasattr(navigator,"describe") else "")
+            display={**self.presentation.snapshot(),"controller_phase":self.phase,"autoplay":self.enabled,
+                     "goal":task.get("target",{}).get("action_id",""),"navigation_stage":stage}
+            try:await self.control({"command":"set_presentation","display":display})
+            except (OSError,asyncio.TimeoutError):pass
+            await asyncio.sleep(0.5)
 
     async def start(self,wait_seconds=20):
         if self.enabled:return self.observe()
@@ -391,6 +407,7 @@ class GameRuntime:
             await self.event("planning_updated",decision_id=self.last_decision)
 
     async def run(self):
+        display_task=asyncio.create_task(self.publish_presentation())
         try:
             while True:
                 try:await self.tick()
@@ -399,5 +416,6 @@ class GameRuntime:
                     if self.enabled:await self.stop("runtime_error: "+str(exc))
                 await asyncio.sleep(0.005 if self.phase in {"combat","navigation"} else 0.02)
         finally:
+            display_task.cancel();await asyncio.gather(display_task,return_exceptions=True)
             if self.enabled:await self.stop("service_stopped")
             if self.policy:await self.policy.close()

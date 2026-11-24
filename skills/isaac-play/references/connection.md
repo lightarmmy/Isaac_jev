@@ -4,13 +4,17 @@
 
 首期步骤：
 
-1. 项目 `Start_Recording.cmd` 启动采集桥。
-2. 项目 `Start_Server_Tunnel.cmd` 打开现有 SSH 隧道；在该窗口输入密码，密码不保存在技能中。
-3. 使用已有 Sandboxie 实验环境运行游戏，启用 Isaac Jev Bridge 0.4.2。游戏当前已运行时，控制台执行 `luamod isaac_jev_bridge` 重载一次。随技能的 assets/isaac_jev_bridge 是对应模组，项目实验目录已安装；原 Steam 目录保持原状。`doctor` 的 `input_timing` 应为 `start-relative-v1`；旧模组会被启动检查拒绝。
+1. 项目 `Start_Game_Link.cmd` 启动本机桥接；新启动默认不录制，已有桥接则保留录制状态。首次依赖安装用 `Setup_Game_Link.cmd`。原 `Start_Recording.cmd` 仍可直接启动并录制。
+2. 游戏控制台输入 `jev_connect 10.28.0.22:31203`，在本机密码弹窗输入密码，等待 HUD 的 SERVER: ready。也支持 `jev_connect <IP[:SSH端口]> <密码> [用户名]`，用户名默认 root；含空格的密码加双引号。游戏自己的控制台/cmd_history.txt 可能保存直接输入的密码，演示优先使用不带密码参数的弹窗形式。桥接不把认证请求写入录像/状态/日志，也不持久化密码。已有可用本地隧道会被复用，并不会把其 SSH 目标改为新 IP；要换服务器先关闭原隧道。原 `Start_Server_Tunnel.cmd` 仍可用。
+3. 使用已有 Sandboxie 实验环境运行游戏，启用 Isaac Jev Bridge 0.5.0。游戏当前已运行时，控制台执行 `luamod isaac_jev_bridge` 重载一次。随技能的 assets/isaac_jev_bridge 是对应模组，项目实验目录已安装；原 Steam 目录保持原状。`doctor` 的 `input_timing` 应为 `start-relative-v1`；旧模组会被启动检查拒绝。
 4. 结束旧独立 shadow/AI 客户端，F8 回人工，再取消暂停。
 5. 用工具 setup、doctor 检查，然后 start_autoplay。工具会告诉你缺少哪条通路；对连接问题做修复，不用调试命令增加资源或改变存档。
 
 工具服务启动时只读取状态，start_autoplay 才申请自动控制。pause/F8 后整个自动会话停止，用户再次要求继续时显式调用 start_autoplay。
+
+游戏内命令：`jev_record on` 开启录制，`jev_record off` 停止并封存文件，`jev_record toggle` 切换；它们不切换人工/AI 控制，也不停止本机桥接。重复 on 不分割文件；开启后仍按新局/重连自动分割，off 在游戏重启后保持（桥接进程未重启）。`jev_status` 显示连接状态；`jev_disconnect` 关闭本桥接管理的 SSH 隧道并回人工，服务器模型继续运行；它不关闭外部 SSH 窗口。`jev_hud on|off` 控制扩展演示面板。网络切换后 managed SSH 断开会被检测，需再次 jev_connect；认证和预热在后台执行，不暂停游戏。
+
+控制台命令依赖本机桥接已经运行；Lua 模组不能自行在沙箱外启动 Python。`Start_Game_Link.cmd` 是每次重启电脑后的本机入口。HUD 的工具信息由本机工具服务推送；只有显式 report_agent_status 才显示“Thinking...”，后台不可用时显示 offline。SSH 主机指纹使用既有 ssh-known-hosts，首次采用 accept-new，指纹变化会拒绝连接。
 
 在 dsh 发出游玩请求后回到游戏，取消暂停并保持游戏前台；start_autoplay 默认等待新游戏帧最多 20 秒，避免切换窗口时立即报错。
 

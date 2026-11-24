@@ -5,7 +5,7 @@
 ## 使用
 
 1. 保持游戏桥 `Start_Recording.cmd` 和 `Start_Server_Tunnel.cmd` 运行；关闭独立 shadow/30 秒 AI 客户端。
-2. 实验游戏启用模组 0.4.2；已通过控制台重载并确认完整地图/导航字段及 start-relative 输入时序。F8 回人工，游戏中进入一局。
+2. 实验游戏启用模组 0.5.0；更新后控制台重载一次，保留完整地图/导航字段及 start-relative 输入时序。F8 回人工，游戏中进入一局。游戏内连接、录制和演示 HUD 见 [GAME_CONSOLE.md](GAME_CONSOLE.md)。
 3. 在 dsh 新对话中请求：
 
 ```text
@@ -18,7 +18,7 @@
 
 ## 已实现
 
-15 个工具：doctor、observe_game、get_floor_map、get_room_details、get_item_details、wiki_search、wiki_read、knowledge_upsert、get_rules、get_available_actions、start_autoplay、execute_plan、wait_for_decision、get_execution_status、stop_autoplay。
+16 个基础工具：doctor、observe_game、get_floor_map、get_room_details、get_item_details、wiki_search、wiki_read、knowledge_upsert、get_rules、get_available_actions、start_autoplay、execute_plan、wait_for_decision、get_execution_status、stop_autoplay、report_agent_status。项目扩展工具另由 list 发现。
 
 本地 HTTP 服务仅监听 127.0.0.1:9530。CLI 与 stdio MCP 使用同一工具目录与 JSON Schema。复杂参数推荐 `--args-file`，支持 UTF-8。MCP 初始化、工具枚举和工具调用已测试。
 

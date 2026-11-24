@@ -35,7 +35,7 @@ python <本技能目录>/scripts/isaac_tools.py call wait_for_decision --arg eve
 
 ## 运行
 
-1. `setup` 启动本地工具服务。`doctor` 核对游戏新状态、模组 0.4.2 和 L40S。缺少通路时读 [connection.md](references/connection.md)。
+1. `setup` 启动本地工具服务。`doctor` 核对游戏新状态、模组 0.5.0 和 L40S。缺少通路时读 [connection.md](references/connection.md)。
 2. 读取 `observe_game`、`get_floor_map`，按需读 `get_rules`。游戏事实和合法候选以最新工具返回为准。
 3. 用户要求实际游玩时调用 `start_autoplay`，再 `wait_for_decision` 等待 `controller_phase=planning`。初始游戏需要未暂停、manual 模式；旧独立 AI/shadow 客户端先结束。
 4. 从 `get_available_actions` 的 action_id 选择一个目标，调用 `execute_plan`，传最新 decision_id 和简短理由。优先处理可补血/可拾取掉落、宝箱房、尚未查看的商店和未探索房间；根据血量、钥匙、装备、上次战斗结果权衡。
@@ -48,6 +48,12 @@ F8、暂停、断线和死亡会撤销自动会话。收到 autoplay=false / hum
 战斗状态的 `combat_timing` 提供预测、发送、受理、拒绝和丢弃计数。受理不能证明角色执行；实际输入以录像 `applied_controls` 和 `action_started/action_ended` 为准。角色持续静止、快速掉血且拒绝/过期计数增长时，停止会话并报告通路问题；不要反复重开消耗生命。模型仍可能选择停留或因墙体无法移动，应结合动作与实际输入区分。诊断工具可后台读取，无需切换游戏焦点。
 
 导航路径和门前对齐阶段可从 `execution.navigation` 查看。空地应直达，障碍由本地导航绕过；combat 时的顶墙问题仍由战斗策略处理。复盘频率与覆盖率时，分别统计 combat/navigation/planning，清房后的等待不能算作战斗推理停顿。房间是否曾有怪、是否由 AI 清完，查战斗事件和前后状态，避免几秒后首次观察时误判为空房。
+
+## 游戏内演示状态
+
+工具调用会自动显示在游戏 HUD（短调用显示为 Last tool），导航与 Jev 战斗阶段另列。进行目标选择、百科查询或较长判断前，调用 `report_agent_status`，state=`thinking`，summary 使用简短的英文任务摘要，例如 `Choosing next room` 或 `Checking Leech`；游戏当前字体使用英文显示。无需提供内部推理过程。完成本轮判断后可报告 state=`idle`。该状态约 60 秒过期；后台断联也会显示 offline，不从“没有工具调用”猜测模型正在思考。
+
+`report_agent_status` 仅显示信息；不能启动、恢复或改变自动控制。F8/暂停后的会话仍按已有规则停止。详细游戏内连接与录制指令见 [connection.md](references/connection.md)。
 
 ## 道具知识
 

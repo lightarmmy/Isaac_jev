@@ -16,6 +16,8 @@ local inventoryCheckedAt = -1000
 local inventoryFingerprint = ""
 local appliedControls = nil
 local EXECUTION_TIMING = "start-relative-v1"
+local serverStatus, agentDisplay = {state="unknown"}, {agent_state="offline"}
+local displayExpires, noticeExpires, notice, hudVisible = 0, 0, "", true
 
 local function arr(t) return setmetatable(t or {}, {__json_array=true}) end
 local function read(o, k, default)
@@ -131,7 +133,7 @@ local function connect()
     if not connected then s:close();lastError=tostring(err);return end
     s:settimeout(0);pcall(function() s:setoption("tcp-nodelay",true) end)
     sock=s;rx="";tx="";clearControl("reconnected");lastError=""
-    emit({type="hello",client="isaac_mod",mod_version="0.4.2",input_timing=EXECUTION_TIMING,capture_phase="pre_update",
+    emit({type="hello",client="isaac_mod",mod_version="0.5.0",input_timing=EXECUTION_TIMING,capture_phase="pre_update",
           repentogon=REPENTOGON~=nil,run_id=runId,logic_hz=30})
     print("[IsaacJev] connected to Python; MANUAL mode")
 end
@@ -146,6 +148,17 @@ local function handle(msg)
     if msg.protocol_version~=VERSION then return end
     if msg.type=="hello_ack" or msg.type=="recording_status" then
         recording=msg.recording==true;recordingError=msg.recording_error==true;return
+    end
+    if msg.type=="presentation_status" then
+        serverStatus=type(msg.server)=="table" and msg.server or {state="unknown"}
+        agentDisplay=type(msg.display)=="table" and msg.display or {agent_state="offline"}
+        displayExpires=Isaac.GetTime()+math.min(5000,math.max(500,tonumber(msg.ttl_ms) or 3500));return
+    end
+    if msg.type=="management_result" then
+        notice=msg.message or msg.error or (msg.ok and "Command accepted" or "Command failed")
+        noticeExpires=Isaac.GetTime()+7000
+        print("[IsaacJev] "..tostring(notice)) -- Replies never contain credentials.
+        return
     end
     if msg.type~="command" then return end
     if msg.command=="set_mode" then
@@ -173,14 +186,72 @@ local function handle(msg)
     command=msg;command.hold_frames=hold;command.started_frame=nil;command.active_frame=nil;command.stop_frame=nil;lastRequest=msg.request_id
     acknowledge(msg,true,mode=="shadow" and "shadow only" or "accepted")
 end
-local function flushTx()
+
+local flushTx, network
+local function consoleArgs(text)
+    local args, i = {}, 1
+    while i<=#text do
+        while i<=#text and text:sub(i,i):match("%s") do i=i+1 end
+        if i>#text then break end
+        local quote=text:sub(i,i)
+        if quote~='"' and quote~="'" then quote=nil else i=i+1 end
+        local value,closed="",not quote
+        while i<=#text do
+            local c=text:sub(i,i)
+            if quote and c==quote then i=i+1;closed=true;break end
+            if not quote and c:match("%s") then break end
+            if quote and c=="\\" and (text:sub(i+1,i+1)==quote or text:sub(i+1,i+1)=="\\") then i=i+1;c=text:sub(i,i) end
+            value=value..c;i=i+1
+        end
+        if not closed or #args>=4 then return nil end
+        args[#args+1]=value
+    end
+    return args
+end
+
+mod:AddCallback(ModCallbacks.MC_EXECUTE_CMD,function(_,cmd,params)
+    cmd=cmd:lower()
+    if not ({jev_connect=true,jev_disconnect=true,jev_record=true,jev_status=true,jev_hud=true})[cmd] then return end
+    local args=consoleArgs(params or "")
+    if not args then print("[IsaacJev] Invalid arguments; quote passwords containing spaces");return end
+    if cmd=="jev_hud" then
+        if args[1]~="on" and args[1]~="off" then print("[IsaacJev] jev_hud on|off");return end
+        hudVisible=args[1]=="on";return
+    end
+    network()
+    if not sock then print("[IsaacJev] Start_Game_Link.cmd must be running on this PC");return end
+    local request={type="management_request"}
+    if cmd=="jev_connect" then
+        local address=args[1] or "10.28.0.22"
+        local host,port=address:match("^([^:]+):(%d+)$")
+        request.operation="server_connect";request.host=host or address;request.port=tonumber(port) or 31203
+        request.password=args[2];request.username=args[3] or "root"
+        clearControl("console_connect")
+    elseif cmd=="jev_disconnect" then request.operation="server_disconnect";clearControl("console_disconnect")
+    elseif cmd=="jev_record" then
+        local choice=args[1] or "toggle"
+        if choice~="on" and choice~="off" and choice~="toggle" then print("[IsaacJev] jev_record on|off|toggle");return end
+        request.operation="recording"
+        if choice=="toggle" then request.enabled="toggle" else request.enabled=choice=="on" end
+    else request.operation="server_status" end
+    if emit(request) then flushTx();print("[IsaacJev] Request sent") else print("[IsaacJev] Bridge busy; retry") end
+end)
+
+if Console and Console.RegisterCommand then
+    for name,help in pairs({jev_connect="jev_connect [IP[:SSH_PORT]] [PASSWORD] [USERNAME]; omit password for local password dialog",
+        jev_disconnect="Close managed SSH tunnel; does not stop remote model",jev_record="jev_record on|off|toggle",
+        jev_status="Show bridge/server state",jev_hud="jev_hud on|off"}) do
+        Console.RegisterCommand(name,"Isaac Jev game link",help,false,AutocompleteType and AutocompleteType.NONE or 0)
+    end
+end
+flushTx=function()
     if not sock or #tx==0 then return end
     local sent,err,partial=sock:send(tx)
     local count=sent or partial or 0
     if count>0 then tx=tx:sub(count+1) end
     if err=="closed" then disconnect("Python disconnected") end
 end
-local function network()
+network=function()
     connect()
     if not sock then return end
     for _=1,16 do
@@ -421,6 +492,20 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER,function()
     end
     if p and Input.IsButtonPressed(Keyboard.KEY_F8,p.ControllerIndex) then clearControl("f8") end
     local rec=recordingError and "REC ERROR" or recording and "REC" or "NOT REC"
+    if not hudVisible then return end
+    local function hudText(value) return tostring(value or ""):gsub("[%c]"," "):sub(1,90) end
+    local display=Isaac.GetTime()<displayExpires and agentDisplay or {agent_state="offline"}
+    local state=display.agent_state or "idle"
+    local toolLine=state=="tool" and ("Tool: "..hudText(display.tool)) or state=="recent_tool" and ("Last tool: "..hudText(display.tool))
+        or state=="thinking" and "Thinking..." or state=="offline" and "dsh service: offline" or "dsh: waiting"
+    local phase=display.controller_phase=="combat" and "Jev combat" or display.controller_phase=="navigation" and "Navigation" or hudText(display.controller_phase)
+    local serverLabel=sock and Isaac.GetTime()<displayExpires and serverStatus.state or "unknown"
+    Isaac.RenderText("SERVER: "..hudText(serverLabel).." | "..phase,10,69,0.6,0.85,1,1)
+    Isaac.RenderText(toolLine,10,81,0.95,0.8,1,1)
+    local detail=display.goal and display.goal~="" and (hudText(display.goal).." | "..hudText(display.navigation_stage)) or hudText(display.summary)
+    if detail~="" then Isaac.RenderText(detail,10,93,0.9,0.9,0.9,1) end
+    local message=Isaac.GetTime()<noticeExpires and notice or serverStatus.error
+    if message then Isaac.RenderText(hudText(message),10,105,1,0.7,0.4,1) end
     Isaac.RenderText("Isaac Jev: "..mode.." | "..(sock and "CONNECTED" or lastError).." | "..rec.." | F8: HUMAN",10,55,1,1,1,1)
 end)
 mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
