@@ -67,9 +67,9 @@ bash scripts/train_l40s.sh datasets/combat-v003 artifacts/combat-v003
 
 这是往返时间，包含 SSH 与 JSON 处理，没有 GPU 推理。详细报告 `.local/network-rtt-v003.json`。训练后使用相同权重和数据做 L40S/4060 纯模型测量，以及经 SSH 隧道的真实推理请求。后者包含序列化、网络和模型，仍不包含游戏采样、特征构建和输入执行调度。
 
-`policy_rpc.py` 仅监听 loopback，供本次测速，不向游戏发送命令。测试结束后关闭临时服务。不能把顺序少量请求的基准当作并发服务或实机清房结果。
+早期 `policy_rpc.py` 是仅监听 loopback 的临时测速服务。2026-11-24 已升级为 L40S 常驻推理服务，本地通过 SSH 隧道访问；最新配置和结果见 [远程推理部署](REMOTE_INFERENCE.md)。服务本身只计算动作，是否控制游戏由本地客户端的 shadow/ai 模式决定。
 
-### 完成后的推理对照
+### 优化前的推理对照（历史结果）
 
 同一 checkpoint、同一数据集、按 tokenizer 长度选择相同短/中/长输入；每个案例测 5 次并报告中位数：
 
@@ -81,9 +81,9 @@ bash scripts/train_l40s.sh datasets/combat-v003 artifacts/combat-v003
 
 三列为独立运行的基准，存在测量波动，不应要求总响应列等于另一轮模型列加固定网络常数。总响应不包含游戏采样、特征构建及输入查询调度，服务器 P95 分别约为 866/886/872 ms。最终持久连接 RTT 中位数为 1.82/2.07/2.46 ms（0/4/16 KiB），16 KiB P95 约 3.50 ms；其他轮次测到 8 ms 量级 P95，也有更高的单次波动。
 
-当前两端均提示缺少可选加速算子，所有案例都超出 200 ms 指令预算。当前服务器实现没有在典型短/中输入上带来速度优势，网络不是主要瓶颈。建议先保留本地路径，重点压缩动态文本/改进推理后端；也可评估低频语义编码与高频数值控制的分工，避免每次微操作都重新编码长文本。性能优化后再对照服务器部署；本结果不代表独占 L40S 的理论性能。
+上述未优化配置下，两端都缺少可选加速算子，全部案例超出 200 ms 指令预算。此处结论已被后续实测更新：L40S 容器 CPU 配额 8 核却默认开启 56 个 Torch 线程；限制线程并安装 flash-linear-attention 后，常驻服务总响应约 58–83 ms。当前采用服务器推理，不再下载新 checkpoint 到电脑；详见最新远程部署文档。
 
-报告文件：`.local/4060-policy-benchmark-v003.json`、`.local/l40s-policy-benchmark-v003.json`、`.local/server-latency-v003.json`、`.local/inference-comparison-v003.json`、`.local/head-change-diagnostics-v003.json`。本次 GPU 推理和回显服务均已关闭，游戏没有由模型接管。
+历史报告文件：`.local/4060-policy-benchmark-v003.json`、`.local/l40s-policy-benchmark-v003.json`、`.local/server-latency-v003.json`、`.local/inference-comparison-v003.json`、`.local/head-change-diagnostics-v003.json`。这些早期临时服务已关闭；2026-11-24 的优化服务已常驻。游戏尚未由本轮优化模型进行实机战斗验证。
 
 ## 后续数据
 

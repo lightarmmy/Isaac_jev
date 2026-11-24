@@ -40,38 +40,53 @@ async def benchmark(args):
             report["scope"]="Network round-trip only; no GPU inference"
             (ROOT/args.output).write_text(json.dumps(report,indent=2),encoding="utf-8")
             return
-        cfg=json.loads((ROOT/args.checkpoint/"policy_config.json").read_text())
+        description,_=await request({"command":"describe"})
+        cfg=description["config"];report["backend"]=description["backend"]
         rows=[json.loads(line) for line in (ROOT/args.dataset/"samples.jsonl").read_text(encoding="utf-8").splitlines()]
-        from transformers import AutoTokenizer
-        snapshot=ROOT/".local/offline-hf"/("models--"+cfg["model"].replace("/","--"))/"snapshots"/cfg["revision"]
-        tokenizer=AutoTokenizer.from_pretrained(snapshot,local_files_only=True)
-        ordered=sorted(rows,key=lambda r:len(tokenizer.encode(r["deployment_prompt"])))
+        ordered=sorted(rows,key=lambda r:len(r["deployment_prompt"]))
+        def payload_for(row):
+            return {"command":"predict","prompt":row["deployment_prompt"],"numeric":row["deployment_numeric"],
+                    "feature_version":cfg["feature_version"],"head_architecture":cfg["head_architecture"],
+                    "rules_sha256":cfg["rules_sha256"]}
         for label,row in zip(("short","median","long"),(ordered[0],ordered[len(ordered)//2],ordered[-1])):
-            payload={"command":"predict","prompt":row["deployment_prompt"],"numeric":row["deployment_numeric"],
-                     "feature_version":cfg["feature_version"],"head_architecture":cfg["head_architecture"]}
-            await request(payload)  # Warm up this sequence length before measurements.
+            payload=payload_for(row)
+            first,first_ms=await request(payload)
             elapsed=[];model=[]
-            for _ in range(5):
+            for _ in range(args.samples):
                 reply,total=await request(payload);elapsed.append(total);model.append(reply["model_ms"])
-            case={"case":label,"tokens":len(tokenizer.encode(row["deployment_prompt"])),"request_bytes":len(json.dumps(payload).encode()),"total":summary(elapsed),
+            case={"case":label,"tokens":first["tokens"],"first_response_ms":round(first_ms,3),"request_bytes":len(json.dumps(payload).encode()),"total":summary(elapsed),
                   "model":summary(model),"transport_and_handler":summary([a-b for a,b in zip(elapsed,model)]),
                   "within_200ms_total":all(ms<200 for ms in elapsed)}
             report["policy"].append(case);print(json.dumps(case),flush=True)
+        mixed=[]
+        for i in range(args.mixed_samples):
+            row=ordered[i*(len(ordered)-1)//max(1,args.mixed_samples-1)]
+            reply,total=await request(payload_for(row))
+            mixed.append({"tokens":reply["tokens"],"total_ms":round(total,3),"model_ms":reply["model_ms"]})
+        if mixed:
+            report["mixed_lengths"]={**summary([r["total_ms"] for r in mixed]),"results":mixed,
+                "within_200ms_total":all(r["total_ms"]<200 for r in mixed)}
+            print(json.dumps({"mixed_lengths":{k:v for k,v in report["mixed_lengths"].items() if k!="results"}}),flush=True)
         report["scope"]="Prepared policy inputs through response; telemetry, feature construction and game execution excluded"
         (ROOT/args.output).write_text(json.dumps(report,indent=2),encoding="utf-8")
     finally:
         if args.shutdown:
             try:await request({"command":"shutdown"})
             except (ConnectionError,RuntimeError):pass
-        writer.close();await writer.wait_closed()
+        writer.close()
+        try:await writer.wait_closed()
+        except ConnectionError:pass
 
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--port",type=int,default=19528)
-    parser.add_argument("--checkpoint",default="artifacts/combat-v003")
+    parser.add_argument("--samples",type=int,default=25)
+    parser.add_argument("--mixed-samples",type=int,default=30)
     parser.add_argument("--dataset",default="datasets/combat-v003")
     parser.add_argument("--output",default=".local/server-latency-v003.json")
     parser.add_argument("--shutdown",action="store_true")
     parser.add_argument("--network-only",action="store_true")
-    asyncio.run(benchmark(parser.parse_args()))
+    args=parser.parse_args()
+    if args.samples<1 or args.mixed_samples<0:parser.error("Invalid sample count")
+    asyncio.run(benchmark(args))

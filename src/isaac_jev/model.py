@@ -47,8 +47,9 @@ class FrozenQwen:
         if self.tokenizer.pad_token_id is None:self.tokenizer.pad_token=self.tokenizer.eos_token
 
     @torch.no_grad()
-    def encode(self,texts):
-        encoded=self.tokenizer(texts,padding=True,truncation=False,return_tensors="pt")
+    def encode(self,texts,*,pad_to_multiple_of=None):
+        encoded=self.tokenizer(texts,padding=True,truncation=False,return_tensors="pt",
+                               pad_to_multiple_of=pad_to_multiple_of)
         if encoded["input_ids"].shape[1]>self.max_length:
             raise ValueError(f"Input has {encoded['input_ids'].shape[1]} tokens, budget {self.max_length}; shorten the feature prompt or retrain with a larger budget")
         encoded={k:v.to(self.device) for k,v in encoded.items() if k in {"input_ids","attention_mask"}}

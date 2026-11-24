@@ -108,6 +108,11 @@ def main():
     p=sub.add_parser("infer");p.add_argument("checkpoint");p.add_argument("--port",type=int,default=9527);p.add_argument("--mode",choices=["shadow","ai"],default="shadow");p.add_argument("--device",default="cuda")
     p.add_argument("--max-seconds",type=float,help="Stop after this many seconds of a running game; restore manual mode")
     p.add_argument("--startup-timeout",type=float,default=600,help="Seconds to wait for an unpaused game before starting")
+    p=sub.add_parser("remote-infer",help="Use an SSH-forwarded L40S policy; no local model/checkpoint required")
+    p.add_argument("--port",type=int,default=9527);p.add_argument("--policy-port",type=int,default=19528)
+    p.add_argument("--mode",choices=["shadow","ai"],default="shadow")
+    p.add_argument("--max-seconds",type=float);p.add_argument("--startup-timeout",type=float,default=600)
+    p.add_argument("--request-timeout",type=float,default=2)
     args=parser.parse_args()
     if args.cmd=="doctor":doctor(args.game)
     elif args.cmd=="bridge":asyncio.run(serve(args))
@@ -133,3 +138,6 @@ def main():
     elif args.cmd=="infer":
         from .training import infer
         asyncio.run(infer(args))
+    elif args.cmd=="remote-infer":
+        from .remote import remote_infer
+        asyncio.run(remote_infer(args))

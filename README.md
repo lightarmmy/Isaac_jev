@@ -70,7 +70,9 @@ python run.py train datasets/combat-v1 --output artifacts/combat-v001 --model Qw
 
 至少需要独立训练与验证整局。示范数据中的模型自身输出不作为人工正确标签。主动道具没有正样本时该输出默认不启用。
 
-本地部署，先安装与训练兼容的 CUDA 推理环境，再运行：
+当前使用 L40S 常驻推理，本地只连接游戏。先双击 `Start_Server_Tunnel.cmd`，在 SSH 窗口输入服务器密码并保持窗口打开，再双击 `Start_Remote_Shadow.cmd`。shadow 仅评估战斗动作，角色仍由人控制；无需本地 Qwen、checkpoint 或 Torch。详细部署、接管命令和测速见 [L40S 远程推理](docs/REMOTE_INFERENCE.md)。
+
+保留本地推理入口供开发使用，需要与训练兼容的 CUDA 环境：
 
 ```powershell
 python run.py infer artifacts/combat-v001 --mode shadow
