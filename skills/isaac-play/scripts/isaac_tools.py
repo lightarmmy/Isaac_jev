@@ -1,6 +1,7 @@
 """Portable CLI and stdio MCP adapter for the skill's local game tools."""
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -63,6 +64,61 @@ def setup():
 def call(name,args):return request("/call",{"tool":name,"arguments":args}).get("result")
 
 
+def arguments_for(args):
+    if args.args_file is not None:payload=json.loads(args.args_file.read_text(encoding="utf-8-sig"))
+    elif args.json is not None:payload=json.loads(args.json)
+    elif args.arg:
+        tool=next((t for t in request("/tools")["tools"] if t["name"]==args.tool),None)
+        if tool is None:raise ValueError("Unknown tool: "+args.tool)
+        properties=tool["inputSchema"].get("properties",{});payload={}
+        for key,raw in args.arg:
+            if key not in properties:raise ValueError("Unknown argument: "+key)
+            kind=properties[key].get("type")
+            if kind=="string":value=raw
+            elif kind=="integer":
+                try:value=int(raw)
+                except ValueError:raise ValueError(key+" must be an integer") from None
+            elif kind=="number":
+                try:value=float(raw)
+                except ValueError:raise ValueError(key+" must be a number") from None
+                if not math.isfinite(value):raise ValueError(key+" must be finite")
+            elif kind=="boolean":
+                if raw not in {"true","false"}:raise ValueError(key+" must be true or false")
+                value=raw=="true"
+            elif kind=="array" and properties[key].get("items",{}).get("type")=="string":
+                payload.setdefault(key,[]).append(raw);continue
+            else:raise ValueError("Use --args-file for nested argument: "+key)
+            if key in payload:raise ValueError("Repeated argument: "+key)
+            payload[key]=value
+    else:payload={}
+    if not isinstance(payload,dict):raise ValueError("Arguments must be a JSON object")
+    return payload
+
+
+def check_game(interval):
+    if not math.isfinite(interval) or not .25<=interval<=5:raise ValueError("Check interval must be 0.25..5 seconds")
+    first=call("observe_game",{"detail":"full"});time.sleep(interval)
+    second=call("observe_game",{"detail":"full"})
+    frame=(second.get("raw_frame") or {});player=second.get("player") or {};age=second.get("last_frame_age_ms")
+    before,after=first.get("game_frame"),second.get("game_frame")
+    same=bool(first.get("run_id") and first.get("run_id")==second.get("run_id") and first.get("run_instance")==second.get("run_instance"))
+    delta=after-before if same and type(before) is int and type(after) is int else None
+    fresh=age is not None and age<100;advancing=delta is not None and delta>0;alive=bool(player) and player.get("dead") is False
+    ready=bool(second.get("connected") and fresh and advancing and alive and frame.get("mode")=="manual" and not second.get("autoplay"))
+    if ready:next_step="Game checks passed. Confirm doctor reports L40S ready, then call start_autoplay while keeping the game in the foreground."
+    elif not second.get("connected"):next_step="Reconnect the experimental game bridge before starting."
+    elif not player:next_step="Enter a playable experimental run and check again."
+    elif player.get("dead"):next_step="The character is dead. Prepare a new run manually and check again."
+    elif second.get("autoplay") or frame.get("mode")!="manual":next_step="Inspect the existing controller/session before requesting another start."
+    elif not same:next_step="The run changed between samples. Check the new run again."
+    else:next_step="Return to the experimental game, check its pause menu, unpause if needed and keep it in the foreground. Recheck; do not inject Esc blindly."
+    return {"ready_for_start":ready,"connected":second.get("connected"),"mode":frame.get("mode"),
+        "run_id":second.get("run_id"),"run_instance":second.get("run_instance"),"room_id":second.get("room_id"),
+        "frame_before":before,"frame_after":after,"frame_delta":delta,"sample_interval_s":interval,
+        "frames_advancing":advancing,"game_fresh":fresh,"last_frame_age_ms":age,"alive":alive,"autoplay":second.get("autoplay"),
+        "next_step":next_step}
+
+
 def mcp():
     setup()
     for line in sys.stdin:
@@ -88,19 +144,23 @@ def mcp():
         print(json.dumps(response,ensure_ascii=False,allow_nan=False),flush=True)
 
 
-def main():
+def main(argv=None):
     if hasattr(sys.stdout,"reconfigure"):sys.stdout.reconfigure(encoding="utf-8")
     parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest="command",required=True)
     for name in ("setup","list","mcp","shutdown"):sub.add_parser(name)
-    p=sub.add_parser("call");p.add_argument("tool");p.add_argument("--args-file",type=Path);p.add_argument("--json",default="{}")
-    args=parser.parse_args()
+    p=sub.add_parser("call");p.add_argument("tool");source=p.add_mutually_exclusive_group()
+    source.add_argument("--args-file",type=Path);source.add_argument("--json")
+    source.add_argument("--arg",nargs=2,action="append",metavar=("NAME","VALUE"),help="Typed primitive parameter; repeat for other fields or string-array entries")
+    p=sub.add_parser("check");p.add_argument("--interval",type=float,default=2)
+    args=parser.parse_args(argv)
     try:
         if args.command=="mcp":mcp();return
         if args.command=="setup":result=setup()
         elif args.command=="list":result=request("/tools")["tools"]
         elif args.command=="shutdown":result=request("/call",{"tool":"shutdown_service","arguments":{}})
+        elif args.command=="check":result=check_game(args.interval)
         else:
-            payload=json.loads(args.args_file.read_text(encoding="utf-8-sig") if args.args_file else args.json)
+            payload=arguments_for(args)
             result=call(args.tool,payload)
         print(json.dumps({"ok":True,"result":result},ensure_ascii=False,allow_nan=False,indent=2))
     except Exception as exc:

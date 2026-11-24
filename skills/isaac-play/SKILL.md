@@ -17,10 +17,21 @@ description: 使用非视觉游戏状态控制本机《以撒的结合》首期 
 python <本技能目录>/scripts/isaac_tools.py setup
 python <本技能目录>/scripts/isaac_tools.py list
 python <本技能目录>/scripts/isaac_tools.py call doctor
+python <本技能目录>/scripts/isaac_tools.py check
 python <本技能目录>/scripts/isaac_tools.py call observe_game
 ```
 
-复杂参数写成 UTF-8 JSON 文件，再执行 `call <工具名> --args-file <文件>`。这避免 Windows shell 对中文、引号和 URL 的转义问题。工具目录及 JSON Schema 由 `list` 返回；以实际目录为准。已注册 MCP 时，同名工具可直接调用。MCP 入口为 `python .../isaac_tools.py mcp`。
+简单参数使用重复的 `--arg <字段名> <值>`，CLI 按工具 Schema 转成正确类型，不需要 PowerShell 内联 JSON 或 .NET HTTP/编码调用。例如：
+
+```text
+python <本技能目录>/scripts/isaac_tools.py call start_autoplay --arg wait_seconds 20
+python <本技能目录>/scripts/isaac_tools.py call execute_plan --arg decision_id decision-... --arg action_id door-2 --arg reason "导航测试"
+python <本技能目录>/scripts/isaac_tools.py call wait_for_decision --arg event_cursor 3 --arg timeout_s 25
+```
+
+对象/对象数组等复杂参数写成 UTF-8 JSON 文件，再执行 `call <工具名> --args-file <文件>`。工具目录及 JSON Schema 由 `list` 返回；以实际目录为准。已注册 MCP 时，同名工具可直接调用。MCP 入口为 `python .../isaac_tools.py mcp`。
+
+终端受限时继续使用这个 Python CLI；无需另写调用壳。`check` 只读两次状态检查帧推进、manual 和存活情况，不发送键盘或控制指令。其 `ready_for_start=false` 时，根据状态处理：游戏不推进先让用户检查暂停并保持游戏前台，避免盲目注入 Esc。终端临时目录缺失属于 dsh 宿主问题，见 [connection.md](references/connection.md)。
 
 ## 运行
 
