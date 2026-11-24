@@ -53,7 +53,7 @@ class Obstacle:
         gap=self.gap(a)
         if gap<=0 and self.gap(b)>gap+1e-6:
             samples=[self.gap((a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t)) for t in (.01,.25,.5,.75,1)]
-            if min(samples)>=gap-1e-6 and self.gap(b)>0:return False
+            if min(samples)>=gap-1e-6:return False
         return True
 
 

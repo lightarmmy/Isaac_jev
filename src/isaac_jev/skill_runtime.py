@@ -8,13 +8,14 @@ import time
 import uuid
 from collections import Counter
 from dataclasses import replace
-from .actions import MAX_OBSERVATION_AGE_FRAMES, EXECUTION_TIMING
+from .actions import Action, MAX_OBSERVATION_AGE_FRAMES, EXECUTION_TIMING
 from .bridge import request_control
 from .features import policy_observation
 from .navigation import Navigator
 from .remote import PolicyClient, validate_description, prediction_action
 from .rooms import combat_active
 from .skill_state import GameMemory
+from .pickups import acquisition_confirmed, pickup_consumed
 
 
 class GameRuntime:
@@ -36,7 +37,10 @@ class GameRuntime:
 
     async def event(self,kind,**fields):
         self.cursor+=1
-        record={"event":kind,"cursor":self.cursor,"time":datetime.now(timezone.utc).isoformat(),**fields}
+        frame=self.memory.frame or {}
+        record={"event":kind,"cursor":self.cursor,"time":datetime.now(timezone.utc).isoformat(),
+            "run_id":self.memory.run_id,"run_instance":self.memory.instance,"room_id":frame.get("room",{}).get("id"),
+            "game_frame":frame.get("game_frame"),**fields}
         self.memory.events.append(record)
         with self.log_path.open("a",encoding="utf-8") as out:out.write(json.dumps(record,ensure_ascii=False,allow_nan=False)+"\n")
         async with self.condition:self.condition.notify_all()
@@ -233,16 +237,21 @@ class GameRuntime:
     async def finish_task(self,status,reason=""):
         task=self.task
         if not task:return
+        await self.halt_navigation()
         await self.event("task_"+status,task_id=task["task_id"],target=task["target"],reason=reason,
             before=task["before"],after=copy.deepcopy(self.memory.frame["player"]))
         self.task=None;self.phase="planning"
         self.last_decision=self.memory.decision_id()
         await self.event("planning_required",decision_id=self.memory.decision_id())
 
+    async def halt_navigation(self):
+        task=self.task;frame=self.memory.frame
+        if task and not task.get("input_stopped") and self.enabled and self.lease and frame and frame.get("mode")=="ai" and not combat_active(frame):
+            await self.send(Action(0,False,1),frame)
+            task["input_stopped"]=True
+
     async def navigate(self,frame):
         task=self.task;target=task["target"];kind=target["kind"]
-        if time.monotonic()-task["started"]>task["timeout_s"]:
-            await self.finish_task("blocked","execution timeout");return
         if kind in {"enter_door","inspect_shop"}:
             if target["target_id"]=="current-room" or task["origin_room"]!=frame["room"]["id"]:
                 if target.get("destination_index") is not None and frame["room"]["id"].split(":")[-1]!=str(target["destination_index"]):
@@ -260,17 +269,28 @@ class GameRuntime:
             if not task["navigator"] or task["navigator"].room_id!=frame["room"]["id"]:task["navigator"]=Navigator(frame,local_target)
         elif kind in {"collect_pickup","collect_treasure_item"}:
             if task["origin_room"]!=frame["room"]["id"]:await self.finish_task("blocked","pickup room changed");return
-            present=any(e.get("uid")==target["target_id"] for e in frame["entities"])
-            if not present:
-                before=task["before"];after=frame["player"]
-                changed=any(before.get(k)!=after.get(k) for k in ("inventory","health","active"))
-                await self.finish_task("completed" if changed else "blocked","" if changed else "target disappeared without confirmed inventory/resource change")
+            entity=next((e for e in frame["entities"] if e.get("uid")==target["target_id"]),None)
+            consumed=pickup_consumed(target,entity,task["before"],frame["player"])
+            confirmed=acquisition_confirmed(target,task["before"],frame["player"])
+            if consumed and confirmed:
+                await self.finish_task("completed");return
+            if consumed:
+                # The same UID may now be an empty pedestal or the previous
+                # active item. Stop approaching while inventory telemetry catches up.
+                task.setdefault("consumed_frame",frame["game_frame"])
+                await self.halt_navigation()
+                if frame["game_frame"]-task["consumed_frame"]>=18:
+                    await self.finish_task("blocked","target consumed without confirmed acquisition after telemetry grace")
                 return
+            task.pop("consumed_frame",None);task.pop("input_stopped",None)
         elif kind in self.goal_handlers:
             _,factory,complete=self.goal_handlers[kind]
             if complete(self.memory,task):await self.finish_task("completed");return
             if not task["navigator"]:task["navigator"]=factory(frame,target)
         else:await self.finish_task("blocked","unknown goal kind");return
+        # Actual completion/consumption is checked first, including on a deadline.
+        if time.monotonic()-task["started"]>task["timeout_s"]:
+            await self.finish_task("blocked","execution timeout");return
         if not task["navigator"]:task["navigator"]=Navigator(frame,target)
         key=(frame["run_id"],frame["room"]["id"],frame["game_frame"])
         if key==task["last_key"]:return

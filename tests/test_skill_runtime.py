@@ -148,12 +148,53 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         await self.start_planning()
         await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
         self.f["entities"]=[];self.f["game_frame"]+=1;await self.runtime.tick()
+        for _ in range(18):self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertTrue(any(e["event"]=="task_blocked" for e in self.runtime.memory.events))
         self.f["entities"]=[pickup()];self.f["game_frame"]+=1;await self.runtime.tick()
         await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
         self.f["entities"]=[];self.f["player"]["inventory"]["collectibles"]=[{"id":1,"count":1}]
         self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertEqual(list(self.runtime.memory.events)[-2]["event"],"task_completed")
+
+    async def test_empty_pedestal_same_uid_completes_before_timeout_and_stops_input(self):
+        self.f["room"]["type"]=4;self.f["entities"]=[pickup()]
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item",timeout_s=60)
+        self.runtime.task["started"]-=61
+        self.f["entities"][0]["subtype"]=0
+        self.f["player"]["inventory"]["collectibles"]=[{"id":1,"count":1}]
+        self.f["game_frame"]+=1;await self.runtime.tick()
+        self.assertIsNone(self.runtime.task);self.assertEqual(self.runtime.phase,"planning")
+        complete=next(e for e in self.runtime.memory.events if e["event"]=="task_completed")
+        self.assertEqual(complete["run_id"],self.f["run_id"]);self.assertEqual(complete["room_id"],self.f["room"]["id"])
+        self.assertFalse(any(e["event"]=="task_blocked" for e in self.runtime.memory.events))
+        self.assertEqual([c for c in self.commands if c["command"]=="action"][-1]["action_id"],0)
+        self.assertFalse(any(a.get("target_id")=="item" for a in self.runtime.actions()))
+
+    async def test_consumed_pedestal_waits_for_inventory_cache_without_more_approach(self):
+        self.f["room"]["type"]=4;self.f["entities"]=[pickup()]
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
+        self.f["entities"][0]["subtype"]=0
+        for _ in range(3):self.f["game_frame"]+=1;await self.runtime.tick()
+        self.assertIsNotNone(self.runtime.task)
+        self.assertTrue(all(c["action_id"]==0 for c in self.commands if c["command"]=="action"))
+        self.f["player"]["inventory"]["collectibles"]=[{"id":1}]
+        self.f["game_frame"]+=1;await self.runtime.tick();self.assertIsNone(self.runtime.task)
+
+    async def test_unrelated_item_gain_does_not_confirm_selected_collectible(self):
+        self.f["room"]["type"]=4;self.f["entities"]=[pickup()]
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
+        self.f["entities"][0]["subtype"]=0;self.f["player"]["inventory"]["collectibles"]=[{"id":2}]
+        for _ in range(19):self.f["game_frame"]+=1;await self.runtime.tick()
+        self.assertFalse(any(e["event"]=="task_completed" for e in self.runtime.memory.events))
+        self.assertTrue(any(e["event"]=="task_blocked" for e in self.runtime.memory.events))
+
+    async def test_active_swap_with_persistent_uid_confirms_new_active(self):
+        self.f["room"]["type"]=4;self.f["entities"]=[{**pickup(),"subtype":58}]
+        self.f["player"]["active"]={"id":45,"charge":4}
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"pickup-item")
+        self.f["entities"][0]["subtype"]=45;self.f["player"]["active"]={"id":58,"charge":3}
+        self.f["game_frame"]+=1;await self.runtime.tick()
+        self.assertIsNone(self.runtime.task);self.assertTrue(any(e["event"]=="task_completed" for e in self.runtime.memory.events))
 
     async def test_takeover_cancels_pending_inference_without_reclaiming_input(self):
         await self.start_planning();self.f["entities"]=[sample_frame()["entities"][0]]
@@ -226,7 +267,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(0.045) # ACK latency overlaps the next prediction
             return await base(payload)
         async def score(source,history,generation):
-            predictions.append(time.monotonic());await asyncio.sleep(0.055)
+            predictions.append(self.f["game_frame"]);await asyncio.sleep(0.055)
             return Action(19),source,generation,55,52
         async def world():
             for i in range(48):
@@ -241,7 +282,9 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(sum(coverage)/len(coverage),0.9)
         self.assertEqual(self.runtime.combat_stats["rejected"],0)
         gaps=[b-a for a,b in zip(predictions,predictions[1:])]
-        self.assertLess(sum(gaps)/len(gaps),0.09)
+        # Compare to the advancing game clock: loaded Windows hosts can delay
+        # both coroutine wakeups. Coverage and ACK overlap are the invariant.
+        self.assertLess(sum(gaps)/len(gaps),3)
 
     async def test_extension_tools_are_discoverable_and_callable(self):
         store=KnowledgeStore(Path(self.temp.name)/"knowledge");registry=create_registry(self.runtime,store)

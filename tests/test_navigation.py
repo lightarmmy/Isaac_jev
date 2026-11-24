@@ -90,6 +90,30 @@ class NavigationTests(unittest.TestCase):
         self.assertTrue(rock.blocks((200,295),(215,295))) # expanded box corner, outside old centre circle
         self.assertTrue(rock.blocks((210,330),(230,330)))
         self.assertFalse(rock.blocks((210,330),(190,330)))
+        self.assertFalse(rock.blocks((212,330),(211,330))) # partial outward step, still in expanded padding
+        circle=Obstacle((320,280),(30,30),"pickup","circle")
+        self.assertFalse(circle.blocks((295,280),(294,280)))
+        self.assertTrue(circle.blocks((295,280),(296,280)))
+
+    def test_empty_collidable_pedestal_is_not_a_target_and_can_be_left(self):
+        f=room_frame(pos=(300,280));f["entities"]=[{"uid":"pedestal","kind":"pickup","variant":100,"subtype":0,
+            "size":12,"collision_class":4,"position":{"x":320,"y":280}}]
+        f["room"]["doors"]=[{"slot":0,"open":True,"locked":False,"position":{"x":40,"y":280}}]
+        f["room"]["navigation_cells"][60][3]=5
+        next(g for g in f["room"]["grid"] if g["index"]==60).update(kind="door",collision=5)
+        nav=Navigator(f,{"kind":"enter_door","target_id":"door-0"})
+        action=nav.step(f)
+        self.assertLess(MOVES[action.action_id//5][0],0)
+        obstacle=next(o for o in nav.obstacles(f) if o.kind=="empty_pedestal")
+        self.assertTrue(obstacle.blocks((270,280),(340,280))) # still physically collidable
+
+    def test_noncollidable_empty_pedestal_is_ignored_but_real_item_stays_avoided(self):
+        f=room_frame(pos=(120,280));e={"uid":"pedestal","kind":"pickup","variant":100,"subtype":0,
+            "size":12,"collision_class":0,"position":{"x":320,"y":280}};f["entities"]=[e]
+        nav=Navigator(f,{"kind":"enter_door","target_id":"door-2"});goal,_=nav.target_position(f)
+        self.assertEqual(len(nav.path(f,goal)[0]),2)
+        e["subtype"]=379
+        self.assertGreater(len(nav.path(f,goal)[0]),2)
 
     def test_near_door_still_aligns_before_outward_push(self):
         f=room_frame(pos=(565,294));nav=Navigator(f,{"kind":"enter_door","target_id":"door-2"})

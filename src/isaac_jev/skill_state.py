@@ -5,6 +5,7 @@ import hashlib
 import json
 from .navigation import is_shop_item
 from .rooms import combat_active
+from .pickups import pickup_available
 
 ROOM_TYPES={1:"normal",2:"shop",3:"error",4:"treasure",5:"boss",6:"miniboss",7:"secret",8:"super_secret",9:"arcade",10:"curse",11:"challenge",
     12:"library",13:"sacrifice",14:"devil",15:"angel",16:"dungeon",17:"boss_rush",18:"isaacs",19:"barren",20:"chest",21:"dice",
@@ -58,7 +59,7 @@ class GameMemory:
         if not self.frame:return []
         result=[]
         for e in self.frame.get("entities",[]):
-            if e.get("kind")!="pickup" or e.get("dead"):continue
+            if not pickup_available(e):continue
             kind=PICKUPS.get(e.get("variant"),"unsupported")
             result.append({"id":e["uid"],"kind":kind,"variant":e.get("variant"),
                 "item_id":None if e.get("pickup_blind") else e.get("subtype"),

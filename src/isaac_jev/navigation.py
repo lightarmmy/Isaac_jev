@@ -3,6 +3,7 @@ import heapq
 import math
 from .actions import MOVES, Action
 from .terrain import Obstacle, player_radius, static_obstacles, xy
+from .pickups import empty_pedestal, pickup_available
 
 
 def distance(a,b):return math.dist(a,b)
@@ -45,7 +46,12 @@ class Navigator:
             kind=e.get("kind");size=float(e.get("size",10))
             if kind=="pickup":
                 target=self.target.get("target_id")==e.get("uid")
-                if is_shop_item(e) or (not target and e.get("variant",0)>=50):
+                if empty_pedestal(e):
+                    # No contents to accidentally collect, but a pedestal may
+                    # still collide with the player. Use a physical-size margin.
+                    if e.get("collision_class")!=0:
+                        obstacles.append(Obstacle(xy(e["position"]),(size+radius+2,)*2,"empty_pedestal","circle"))
+                elif is_shop_item(e) or (not target and e.get("variant",0)>=50):
                     obstacles.append(Obstacle(xy(e["position"]),(size+radius+8,)*2,"pickup","circle"))
             elif kind=="bomb" or (kind=="laser" and e.get("owner_type")!=1):
                 obstacles.append(Obstacle(xy(e["position"]),(radius+size+35,)*2,kind,"circle"))
@@ -124,7 +130,7 @@ class Navigator:
             anchor=(max(tl[0]+rx+2,min(br[0]-rx-2,goal[0])),max(tl[1]+ry+2,min(br[1]-ry-2,goal[1])))
             return anchor,door
         entity=next((e for e in frame["entities"] if e.get("uid")==target["target_id"]),None)
-        if not entity:return None,None
+        if not pickup_available(entity):return None,None
         if is_shop_item(entity):raise ValueError("Shop goods are view-only")
         return xy(entity["position"]),None
 
@@ -162,6 +168,11 @@ class Navigator:
         self.pending_inputs[n+self.input_delay]=(move,hold)
         return Action(MOVES.index(move)*5,False,hold)
 
+    def trajectory_clear(self,frame,points,obstacles,door_exit=False):
+        # A delayed command can start with stationary prediction samples inside
+        # conservative padding. Those samples must not veto an outward escape.
+        return all(self.segment_clear(frame,a,b,obstacles,door_exit) for a,b in zip(points,points[1:]) if distance(a,b)>1e-6)
+
     def step(self,frame):
         if frame["room"]["id"]!=self.room_id:raise ValueError("Navigation room changed")
         pos=xy(frame["player"]["position"]);n=frame["game_frame"]
@@ -182,7 +193,7 @@ class Navigator:
             aligned=abs(pos[cross]-xy(door["position"])[cross])<=5 and abs(velocity[cross])<.4
             if plane>=-6 and aligned:
                 self.stage="cross_door";points=self.motion(frame,outward,2)
-                if not all(self.segment_clear(frame,a,b,obstacles,door_exit=True) for a,b in zip(points,points[1:])):raise ValueError("Door approach blocked")
+                if not self.trajectory_clear(frame,points,obstacles,door_exit=True):raise ValueError("Door approach blocked")
                 return self.make_action(outward,2,n)
             if plane>=-18:self.stage="align_door"
         # Progress is monotonic; visibility permits skipping a corner, not
@@ -194,11 +205,11 @@ class Navigator:
         move=tuple(self.axis_input(delta[i],predicted_velocity[i]) for i in range(2))
         hold=1 if distance(pos,waypoint)<45 or self.stage=="align_door" else 3
         points=self.motion(frame,move,hold)
-        if not all(self.segment_clear(frame,a,b,obstacles) for a,b in zip(points,points[1:])):
+        if not self.trajectory_clear(frame,points,obstacles):
             candidates=[]
             for alternative in MOVES:
                 trajectory=self.motion(frame,alternative,1)
-                if all(self.segment_clear(frame,a,b,obstacles) for a,b in zip(trajectory,trajectory[1:])):
+                if self.trajectory_clear(frame,trajectory,obstacles):
                     cost=distance(trajectory[-1],waypoint)+3*distance(alternative,move);candidates.append((cost,alternative))
             if not candidates:raise ValueError("Approach blocked by collision or momentum")
             _,move=min(candidates);hold=1

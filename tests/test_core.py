@@ -3,6 +3,7 @@ import copy
 import json
 from pathlib import Path
 import tempfile
+import time
 import unittest
 
 from isaac_jev.actions import Action,label_from_input
@@ -162,11 +163,18 @@ class NetworkTests(unittest.IsolatedAsyncioTestCase):
         writer.write(encode({"protocol_version":1,"type":"hello","client":"isaac_mod"}));await writer.drain();await reader.readline()
         writer.write(encode(sample_frame(10)));await writer.drain();await asyncio.sleep(0.03)
         command=Action(20,False,2).as_command(sample_frame(4))
-        result=await request_control(command,port=self.hub.port)
+        # These are validator checks. Keep wall-clock freshness explicit rather
+        # than allowing slow socket setup on a loaded host to select another guard.
+        self.hub.last_received=time.monotonic()
+        result=await self.hub.control(command)
         self.assertFalse(result["ok"]);self.assertIn("expired",result["error"])
         command=Action(20).as_command(sample_frame(10));command["room_id"]="wrong-room"
-        result=await request_control(command,port=self.hub.port)
+        self.hub.last_received=time.monotonic()
+        result=await self.hub.control(command)
         self.assertFalse(result["ok"]);self.assertIn("mismatch",result["error"])
+        self.hub.last_received=time.monotonic()-1
+        result=await self.hub.control(Action(20).as_command(sample_frame(10)))
+        self.assertFalse(result["ok"]);self.assertIn("no fresh",result["error"])
         writer.close();await writer.wait_closed()
 
     async def test_record_rotation_drains_gzip_and_excludes_diagnostics(self):
