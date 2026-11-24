@@ -107,7 +107,11 @@ async def remote_infer(args):
             if not status.get("connected"):raise ConnectionError("Isaac disconnected")
             if not frame or frame["mode"]!=args.mode:
                 if running_since is not None:
-                    print("Human takeover / mode changed; inference stopped.",flush=True);break
+                    print(json.dumps({"inference_stopped":True,"reason":"human_takeover_or_mode_changed",
+                        "observed_mode":frame.get("mode") if frame else None,
+                        "mode_reason":frame.get("mode_reason","unknown") if frame else None,
+                        "room_id":frame.get("room",{}).get("id") if frame else None,
+                        "game_frame":frame.get("game_frame") if frame else None}),flush=True);break
                 if time.monotonic()-waiting_since>args.startup_timeout:raise RuntimeError("Requested mode did not start")
                 await asyncio.sleep(0.05);continue
             if running_since is None:running_since=time.monotonic()

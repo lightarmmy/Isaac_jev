@@ -10,6 +10,7 @@ local pendingEvents, inputEdges = {}, {active_trigger=false, bomb_trigger=false,
 local previousHeld, itemCache, inventoryCount = {}, {}, -1
 local rawFrame, lastError, drops = nil, "", 0
 local recording, recordingError = false, false
+local controlReason, controlRevision = "initial", 0
 
 local function arr(t) return setmetatable(t or {}, {__json_array=true}) end
 local function read(o, k, default)
@@ -70,10 +71,33 @@ local function emit(msg)
     tx=tx..line
     return true
 end
-local function clearControl() command=nil;mode="manual" end
+local function setControlMode(nextMode,reason)
+    command=nil
+    local previous=mode
+    mode=nextMode;controlReason=reason or "requested_mode";controlRevision=controlRevision+1
+    if previous~=nextMode then
+        emit({type="event",event="control_mode_changed",run_id=runId,
+              game_frame=math.floor(Game():GetFrameCount()),room_id=lastRoom,
+              previous_mode=previous,mode=mode,reason=controlReason,control_revision=controlRevision})
+    end
+end
+local function clearControl(reason)
+    command=nil
+    -- Repeated paused renders must not flood the raw event stream.
+    if mode~="manual" then setControlMode("manual",reason or "manual_reset") end
+end
+local function humanPauseOpen()
+    -- IsPaused also covers door transitions and boss intros. REPENTOGON exposes
+    -- the actual pause menu: 0=CLOSED, 1=OPEN, 2=OPTIONS; use the documented dot call.
+    if PauseMenu and type(PauseMenu.GetState)=="function" then
+        local ok,state=pcall(PauseMenu.GetState)
+        if ok and type(state)=="number" then return state~=0 end
+    end
+    return Game():IsPaused() -- Older/missing API: retain manual fallback.
+end
 local function disconnect(reason)
     if sock then pcall(function() sock:close() end) end
-    sock=nil;rx="";tx="";clearControl();recording=false;recordingError=false;lastError=reason or "disconnected"
+    sock=nil;rx="";tx="";clearControl("disconnected");recording=false;recordingError=false;lastError=reason or "disconnected"
 end
 local function frameNo() return math.floor(Game():GetFrameCount()) end
 -- Keep continued games and reloaded mods in the same training split. Replays
@@ -91,8 +115,8 @@ local function connect()
     local s=core.tcp();s:settimeout(0.01)
     local connected,err=s:connect(HOST,PORT)
     if not connected then s:close();lastError=tostring(err);return end
-    s:settimeout(0);sock=s;rx="";tx="";clearControl();lastError=""
-    emit({type="hello",client="isaac_mod",mod_version="0.3.2",capture_phase="pre_update",
+    s:settimeout(0);sock=s;rx="";tx="";clearControl("reconnected");lastError=""
+    emit({type="hello",client="isaac_mod",mod_version="0.3.3",capture_phase="pre_update",
           repentogon=REPENTOGON~=nil,run_id=runId,logic_hz=30})
     print("[IsaacJev] connected to Python; MANUAL mode")
 end
@@ -111,7 +135,7 @@ local function handle(msg)
     if msg.type~="command" then return end
     if msg.command=="set_mode" then
         if msg.mode~="manual" and msg.mode~="shadow" and msg.mode~="ai" then acknowledge(msg,false,"invalid mode");return end
-        command=nil;mode=msg.mode;acknowledge(msg,true,"mode changed");return
+        setControlMode(msg.mode,"requested_"..msg.mode);acknowledge(msg,true,"mode changed");return
     end
     if msg.command=="ping" then acknowledge(msg,true,"pong");return end
     if msg.command~="action" then acknowledge(msg,false,"unknown command");return end
@@ -265,7 +289,8 @@ local function snapshot()
     if currentRoom~=lastRoom then command=nil;lastRoom=currentRoom end
     sequence=sequence+1
     return {type="frame",protocol_version=VERSION,run_id=runId,seq=sequence,game_frame=frameNo(),
-            capture_phase="pre_update",game_time_ms=Isaac.GetTime(),mode=mode,room=roomData(p),
+            capture_phase="pre_update",game_time_ms=Isaac.GetTime(),mode=mode,
+            mode_reason=controlReason,control_revision=controlRevision,room=roomData(p),
             player={position=vec(p.Position),velocity=vec(p.Velocity),size=p.Size,size_multi=vec(p.SizeMulti),
                     type=p:GetPlayerType(),dead=p:IsDead(),can_fly=p.CanFly,controls_enabled=p:AreControlsEnabled(),
                     health={red=p:GetHearts(),max_red=p:GetMaxHearts(),soul=p:GetSoulHearts(),
@@ -306,9 +331,12 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER,function()
             if held and not previousHeld[key] then inputEdges[key]=true end
             previousHeld[key]=held
         end
-        if Input.IsButtonPressed(Keyboard.KEY_F8,p.ControllerIndex) then clearControl() end
     end
-    if Game():IsPaused() then clearControl();network() end
+    if Game():IsPaused() then
+        network();command=nil -- No action may survive a paused transition.
+        if humanPauseOpen() then clearControl("pause_menu") end
+    end
+    if p and Input.IsButtonPressed(Keyboard.KEY_F8,p.ControllerIndex) then clearControl("f8") end
     local rec=recordingError and "REC ERROR" or recording and "REC" or "NOT REC"
     Isaac.RenderText("Isaac Jev: "..mode.." | "..(sock and "CONNECTED" or lastError).." | "..rec.." | F8: HUMAN",10,55,1,1,1,1)
 end)
@@ -352,4 +380,4 @@ mod:AddCallback(ModCallbacks.MC_USE_ITEM,function(_,id,rng,p,flags,slot,variable
           use_flags=flags,active_slot=slot,variable_data=variableData})
     -- nil return: observe use without cancelling or changing charge consumption.
 end)
-mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT,function() clearControl();rawFrame=nil end)
+mod:AddCallback(ModCallbacks.MC_PRE_GAME_EXIT,function() clearControl("game_exit");rawFrame=nil end)

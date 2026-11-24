@@ -104,5 +104,36 @@ class RemoteClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_slow_prediction_is_discarded(self):
         self.assertEqual(await self.run_inference_case(0.25),[])
 
+    async def test_ai_waits_in_clear_room_then_continues_after_entering_combat_room(self):
+        cfg=config();controls=[];predictions=[];frame_count=0
+        class FakeClient:
+            def __init__(self,*args):pass
+            async def connect(self):pass
+            async def close(self):pass
+            async def request(self,payload):
+                if payload["command"]=="describe":return {"ok":True,"config":cfg,"backend":{}}
+                predictions.append(payload)
+                return {"ok":True,"move_id":4,"shoot_id":2,"action_id":22,"use_active":False,
+                        "model_ms":50,"observation":payload["observation"]}
+        async def control(payload,port):
+            nonlocal frame_count
+            controls.append(payload)
+            if payload["command"]!="get_frame":return {"ok":True}
+            frame_count+=1;frame=sample_frame(frame_count)
+            frame["mode"]="ai" if frame_count in (2,3) else "manual"
+            frame["mode_reason"]="f8" if frame_count==4 else "requested_ai"
+            if frame_count<3:frame["entities"]=[];frame["room"]["clear"]=True
+            else:frame["room"]["id"]="next-combat-room"
+            return {"frame":frame,"policy_history":history_summary(frame,[]),
+                    "status":{"connected":True,"last_frame_age_ms":0}}
+        args=SimpleNamespace(port=0,policy_port=0,request_timeout=1,startup_timeout=1,max_seconds=1,mode="ai")
+        with patch("isaac_jev.remote.PolicyClient",FakeClient),patch("isaac_jev.remote.request_control",control):
+            await remote_infer(args)
+        self.assertEqual(len(predictions),1)
+        action=[p for p in controls if p["command"]=="action"][0]
+        self.assertEqual(action["room_id"],"next-combat-room")
+        self.assertEqual(action["observation_frame"],3)
+        self.assertEqual(controls[-1],{"command":"set_mode","mode":"manual"})
+
 
 if __name__=="__main__":unittest.main()

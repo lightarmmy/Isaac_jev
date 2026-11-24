@@ -3,5 +3,5 @@
   <directory>isaac_jev_bridge</directory>
   <id>isaac_jev_bridge_local</id>
   <description>Non-visual telemetry and manual demonstration recording. Requires REPENTOGON. F8 returns control to the human.</description>
-  <version>0.3.0</version>
+  <version>0.3.3</version>
 </metadata>

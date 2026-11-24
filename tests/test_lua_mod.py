@@ -12,7 +12,8 @@ except ImportError:
     LuaRuntime=None
 
 MOCK_GAME=r'''
-TIME=3000; FRAME=0; INCOMING={}; SENT={}; CALLBACKS={}; HELD={}; PAUSED=false
+TIME=3000; FRAME=0; INCOMING={}; SENT={}; CALLBACKS={}; HELD={}; PAUSED=false; PAUSE_MENU_STATE=0; ROOM_INDEX=17
+PauseMenu={GetState=function()return PAUSE_MENU_STATE end}
 REPENTOGON=true
 ModCallbacks={MC_PRE_UPDATE=1026,MC_POST_GAME_STARTED=15,MC_POST_RENDER=2,MC_INPUT_ACTION=13,MC_ENTITY_TAKE_DMG=11,MC_USE_ITEM=3,MC_PRE_GAME_EXIT=17}
 ButtonAction={ACTION_LEFT=0,ACTION_RIGHT=1,ACTION_UP=2,ACTION_DOWN=3,ACTION_SHOOTLEFT=4,ACTION_SHOOTRIGHT=5,ACTION_SHOOTUP=6,ACTION_SHOOTDOWN=7,ACTION_ITEM=9,ACTION_BOMB=8,ACTION_PILLCARD=10}
@@ -46,7 +47,7 @@ function PLAYER:GetBlackHearts()return 0 end
 local room={GetGridSize=function()return 0 end,GetGridWidth=function()return 13 end,GetDoor=function()return nil end,
 GetType=function()return 1 end,GetRoomShape=function()return 1 end,IsClear=function()return true end,
 GetTopLeftPos=function()return {X=0,Y=0} end,GetBottomRightPos=function()return {X=640,Y=560} end}
-local level={GetStage=function()return 1 end,GetStageType=function()return 0 end,GetCurrentRoomIndex=function()return 17 end}
+local level={GetStage=function()return 1 end,GetStageType=function()return 0 end,GetCurrentRoomIndex=function()return ROOM_INDEX end}
 local game={GetNumPlayers=function()return 1 end,GetFrameCount=function()return FRAME end,
 GetLevel=function()return level end,GetRoom=function()return room end,IsPaused=function()return PAUSED end,
 GetSeeds=function()return {GetStartSeed=function()return 123 end} end}
@@ -185,5 +186,68 @@ class LuaModTests(unittest.TestCase):
         self.assertFalse(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,9)"))
         self.lua.globals().FRAME=6
         self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+
+    def test_door_transition_preserves_ai_but_clears_old_room_action(self):
+        self.step();self.step();frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+        current=int(self.lua.globals().FRAME)
+        self.send({"command":"action","request_id":"before-door","action_id":20,
+            "move":{"x":1,"y":0},"shoot":{"x":0,"y":0},"use_active":False,"hold_frames":3,
+            "observation_frame":current,"valid_until_frame":current+6,
+            "run_id":frame["run_id"],"room_id":frame["room"]["id"]})
+        self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.lua.execute("PAUSED=true; PAUSE_MENU_STATE=0; CALLBACKS[2]()")
+        self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        self.lua.execute("PAUSED=false; ROOM_INDEX=18")
+        self.step();self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertEqual(frame["mode"],"ai")
+        self.assertEqual(frame["room"]["id"],"1:0:18")
+        self.assertIsNone(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+        current=int(self.lua.globals().FRAME)
+        self.send({"command":"action","request_id":"after-door","action_id":20,
+            "move":{"x":1,"y":0},"shoot":{"x":0,"y":0},"use_active":False,"hold_frames":3,
+            "observation_frame":current,"valid_until_frame":current+6,
+            "run_id":frame["run_id"],"room_id":frame["room"]["id"]})
+        self.assertTrue(self.lua.eval("CALLBACKS[13](nil,PLAYER,0,1)"))
+
+    def test_pause_menu_and_options_relinquish_ai_and_record_cause(self):
+        self.step()
+        for menu_state in (1,2):
+            self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+            self.lua.globals().PAUSED=True;self.lua.globals().PAUSE_MENU_STATE=menu_state
+            self.lua.execute("CALLBACKS[2](); CALLBACKS[2]()")
+            self.lua.globals().PAUSED=False;self.lua.globals().PAUSE_MENU_STATE=0
+            self.step();self.step()
+            packets=self.messages();frame=[p for p in packets if p["type"]=="frame"][-1]
+            self.assertEqual(frame["mode"],"manual")
+            self.assertEqual(frame["mode_reason"],"pause_menu")
+            changes=[p for p in packets if p.get("event")=="control_mode_changed" and p.get("reason")=="pause_menu"]
+            self.assertEqual(len(changes),1)
+
+    def test_f8_during_transition_still_relinquishes_ai(self):
+        self.step();self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+        self.lua.execute("PAUSED=true; PAUSE_MENU_STATE=0; HELD[119]=true; CALLBACKS[2](); HELD[119]=false; PAUSED=false")
+        self.step();self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertEqual(frame["mode"],"manual")
+        self.assertEqual(frame["mode_reason"],"f8")
+
+    def test_missing_pause_menu_api_keeps_manual_fallback(self):
+        self.step();self.send({"command":"set_mode","mode":"ai","request_id":"mode"})
+        self.lua.execute("PauseMenu=nil; PAUSED=true; CALLBACKS[2](); PAUSED=false")
+        self.step();self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertEqual(frame["mode"],"manual")
+
+    def test_pending_mode_request_cannot_override_f8_during_transition(self):
+        self.step()
+        self.lua.globals().INCOMING[1]=json.dumps({"protocol_version":1,"type":"command",
+            "command":"set_mode","mode":"ai","request_id":"pending"})+"\n"
+        self.lua.execute("PAUSED=true; PAUSE_MENU_STATE=0; HELD[119]=true; CALLBACKS[2](); HELD[119]=false; PAUSED=false")
+        self.step();self.step()
+        frame=[p for p in self.messages() if p["type"]=="frame"][-1]
+        self.assertEqual(frame["mode"],"manual")
+        self.assertEqual(frame["mode_reason"],"f8")
 
 if __name__=="__main__":unittest.main()
