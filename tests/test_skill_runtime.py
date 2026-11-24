@@ -196,6 +196,24 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertIsNone(self.runtime.task);self.assertTrue(any(e["event"]=="task_completed" for e in self.runtime.memory.events))
 
+    async def test_navigation_momentum_recovery_keeps_task_running(self):
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"door-0")
+        self.f["player"].update(position={"x":385,"y":300},velocity={"x":8,"y":0})
+        self.f["game_frame"]+=1;await self.runtime.tick()
+        self.assertIsNotNone(self.runtime.task);self.assertEqual(self.runtime.observe()["execution"]["navigation"]["stage"],"settling")
+        self.assertFalse(any(e["event"]=="task_blocked" for e in self.runtime.memory.events))
+        self.f["game_frame"]+=4;self.f["player"].update(position={"x":380,"y":290},velocity={"x":0,"y":0})
+        await self.runtime.tick();self.assertIsNotNone(self.runtime.task)
+        self.assertNotEqual([c for c in self.commands if c["command"]=="action"][-1]["action_id"],0)
+
+    async def test_navigation_blocked_result_exposes_recoverability(self):
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),"door-0")
+        self.f["player"].update(position={"x":385,"y":300},velocity={"x":8,"y":0})
+        for _ in range(11):self.f["game_frame"]+=1;await self.runtime.tick()
+        event=next(e for e in self.runtime.memory.events if e["event"]=="task_blocked")
+        self.assertEqual(event["failure"]["reason_code"],"momentum_recovery_exhausted")
+        self.assertTrue(event["failure"]["recoverable"])
+
     async def test_takeover_cancels_pending_inference_without_reclaiming_input(self):
         await self.start_planning();self.f["entities"]=[sample_frame()["entities"][0]]
         gate=asyncio.Event()
@@ -338,6 +356,46 @@ class LeaseTests(unittest.IsolatedAsyncioTestCase):
         hub.revoke_control()
         self.assertFalse((await hub.control({**action,"lease_id":token}))["ok"])
         self.assertFalse((await hub.control({"command":"set_mode","mode":"ai","lease_id":token}))["ok"])
+
+
+class PolicyConnectionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_blank_connection_timeout_has_explicit_tunnel_hint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime=GameRuntime(tmp)
+            class Client:
+                writer=None;closed=False
+                async def connect(self):raise asyncio.TimeoutError()
+                async def close(self):self.closed=True
+            client=Client()
+            with patch("isaac_jev.skill_runtime.PolicyClient",return_value=client):
+                with self.assertRaisesRegex(RuntimeError,"19528.*Start_Server_Tunnel"):
+                    await runtime.connect_policy()
+            self.assertTrue(client.closed);self.assertIsNone(runtime.policy);self.assertIsNone(runtime.lease)
+
+    async def test_cached_connection_is_probed_and_cleared_after_network_loss(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime=GameRuntime(tmp)
+            class Client:
+                writer=True;closed=False
+                async def request(self,payload):raise ConnectionResetError("network changed")
+                async def close(self):self.closed=True;self.writer=None
+            client=Client();runtime.policy=client
+            with self.assertRaisesRegex(RuntimeError,"network changed"):
+                await runtime.connect_policy()
+            self.assertTrue(client.closed);self.assertIsNone(runtime.policy)
+
+    async def test_invalid_description_is_never_cached_as_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime=GameRuntime(tmp)
+            class Client:
+                writer=None;closed=False
+                async def connect(self):self.writer=True
+                async def request(self,payload):return {"ok":True,"config":{}}
+                async def close(self):self.closed=True;self.writer=None
+            client=Client()
+            with patch("isaac_jev.skill_runtime.PolicyClient",return_value=client):
+                with self.assertRaises(ValueError):await runtime.connect_policy()
+            self.assertTrue(client.closed);self.assertIsNone(runtime.policy)
 
 
 if __name__=="__main__":unittest.main()

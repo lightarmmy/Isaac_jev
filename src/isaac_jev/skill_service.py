@@ -131,7 +131,7 @@ async def serve(root,port=9530,bridge_port=9527,policy_port=19528):
                 try:result=future.result(35)
                 except TimeoutError:future.cancel();raise
                 self.response(200,{"ok":True,"result":result})
-            except Exception as exc:self.response(400,{"ok":False,"error":str(exc)})
+            except Exception as exc:self.response(400,{"ok":False,"error":str(exc) or type(exc).__name__})
     server=ThreadingHTTPServer(("127.0.0.1",port),Handler);server.daemon_threads=True
     thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
     task=asyncio.create_task(runtime.run())

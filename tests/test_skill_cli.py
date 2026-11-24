@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 
 spec=importlib.util.spec_from_file_location("isaac_tools_cli",Path(__file__).resolve().parents[1]/"skills/isaac-play/scripts/isaac_tools.py")
 cli=importlib.util.module_from_spec(spec);spec.loader.exec_module(cli)
@@ -72,3 +73,43 @@ class CliTests(unittest.TestCase):
             ({"game_frame":70,"autoplay":True},False)]:
             with self.subTest(changes=changes),patch.object(cli,"call",side_effect=[first,{**first,**changes}]),patch.object(cli.time,"sleep"):
                 self.assertEqual(cli.check_game(2)["ready_for_start"],ready)
+
+
+class LauncherTests(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
+        source=self.root/"src/isaac_jev";source.mkdir(parents=True);(source/"skill_service.py").write_text("")
+        self.cfg={"project_root":str(self.root),"port":9530,"bridge_port":9527,"policy_port":19528}
+        self.configuration=patch.object(cli,"configuration",return_value=self.cfg);self.configuration.start();self.addCleanup(self.configuration.stop)
+
+    def test_primary_log_denied_falls_back_only_when_runtime_state_is_writable(self):
+        original=Path.open
+        def open_path(path,*args,**kwargs):
+            if path.name=="service.log":raise PermissionError("primary log denied")
+            return original(path,*args,**kwargs)
+        with patch.object(Path,"open",open_path):plan=cli.prepare_launch(self.cfg)
+        self.assertNotEqual(plan["log_path"].name,"service.log");self.assertTrue(plan["log_path"].exists())
+        self.assertTrue(plan["warnings"])
+
+    def test_denied_preflight_never_shuts_down_existing_service(self):
+        with patch.object(cli,"service_health",return_value={"service":"isaac-play-tools-v1"}),patch.object(Path,"open",side_effect=PermissionError("read-only sandbox")),patch.object(cli,"request") as request,patch.object(cli.subprocess,"Popen") as popen:
+            with self.assertRaisesRegex(PermissionError,"read-only sandbox"):cli.restart()
+            request.assert_not_called();popen.assert_not_called()
+
+    def test_existing_service_setup_does_not_need_write_permission(self):
+        health={"ok":True,"service":"isaac-play-tools-v1","project_root":str(self.root)}
+        with patch.object(cli,"service_health",return_value=health),patch.object(Path,"open",side_effect=PermissionError("readonly")):
+            self.assertTrue(cli.setup()["already_running"])
+
+    def test_restart_refuses_to_interrupt_active_game_session(self):
+        with patch.object(cli,"service_health",return_value={"ok":True}),patch.object(cli,"call",return_value={"autoplay":True}),patch.object(cli,"request") as request:
+            with self.assertRaisesRegex(RuntimeError,"Stop the automatic session"):cli.restart()
+            request.assert_not_called()
+
+    def test_launch_preserves_preflight_pid_contents_until_process_starts(self):
+        local=self.root/".local/isaac-skill";local.mkdir(parents=True);(local/"service.pid").write_text("old-pid")
+        cli.prepare_launch(self.cfg);self.assertEqual((local/"service.pid").read_text(),"old-pid")
+        proc=SimpleNamespace(pid=321,poll=lambda:None)
+        with patch.object(cli,"service_health",side_effect=[None,{"ok":True,"service":"isaac-play-tools-v1"}]),patch.object(cli.subprocess,"Popen",return_value=proc):
+            result=cli.setup()
+        self.assertTrue(result["started"]);self.assertEqual((local/"service.pid").read_text(),"321")

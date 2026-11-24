@@ -54,10 +54,20 @@ class GameRuntime:
         async with self.policy_lock:return await self._connect_policy()
 
     async def _connect_policy(self):
-        if self.policy and self.policy.writer:return {"ready":True,"backend":self.backend,"config":self.policy_config}
-        self.policy=PolicyClient(self.policy_port,2)
-        await self.policy.connect();description=await self.policy.request({"command":"describe"})
-        self.policy_config=validate_description(description);self.backend=description["backend"]
+        candidate=self.policy if self.policy and self.policy.writer else PolicyClient(self.policy_port,2)
+        try:
+            if not candidate.writer:await candidate.connect()
+            description=await candidate.request({"command":"describe"})
+            cfg=validate_description(description)
+        except (OSError,asyncio.TimeoutError) as exc:
+            await candidate.close()
+            if self.policy is candidate:self.policy=None
+            raise RuntimeError(f"L40S policy unavailable at 127.0.0.1:{self.policy_port}: {str(exc) or type(exc).__name__}. Open Start_Server_Tunnel.cmd and keep the SSH tunnel connected.") from exc
+        except BaseException:
+            await candidate.close()
+            if self.policy is candidate:self.policy=None
+            raise
+        self.policy=candidate;self.policy_config=cfg;self.backend=description["backend"]
         return {"ready":True,"backend":self.backend,"config":self.policy_config,"local_model_loaded":False}
 
     def register_goal(self,kind,candidates,navigator,completed):
@@ -239,7 +249,7 @@ class GameRuntime:
         if not task:return
         await self.halt_navigation()
         await self.event("task_"+status,task_id=task["task_id"],target=task["target"],reason=reason,
-            before=task["before"],after=copy.deepcopy(self.memory.frame["player"]))
+            before=task["before"],after=copy.deepcopy(self.memory.frame["player"]),failure=task.get("failure"))
         self.task=None;self.phase="planning"
         self.last_decision=self.memory.decision_id()
         await self.event("planning_required",decision_id=self.memory.decision_id())
@@ -306,7 +316,10 @@ class GameRuntime:
             if action:
                 result=await self.send(action,frame)
                 if hasattr(task["navigator"],"command_feedback"):task["navigator"].command_feedback(frame,action,result or {})
-        except ValueError as exc:await self.finish_task("blocked",str(exc))
+        except ValueError as exc:
+            task["failure"]={"reason_code":getattr(exc,"reason_code","navigation_blocked"),"recoverable":getattr(exc,"recoverable",False)}
+            if hasattr(task["navigator"],"describe"):task["failure"]["navigation"]=task["navigator"].describe()
+            await self.finish_task("blocked",str(exc))
 
     async def tick(self):
         reply=await self.control({"command":"get_frame","include_history":True})
@@ -366,7 +379,7 @@ class GameRuntime:
                 except (OSError,ValueError,RuntimeError,KeyError,TypeError,asyncio.TimeoutError) as exc:
                     self.last_error=str(exc)
                     if self.enabled:await self.stop("runtime_error: "+str(exc))
-                await asyncio.sleep(0.005 if self.phase=="combat" else 0.02)
+                await asyncio.sleep(0.005 if self.phase in {"combat","navigation"} else 0.02)
         finally:
             if self.enabled:await self.stop("service_stopped")
             if self.policy:await self.policy.close()

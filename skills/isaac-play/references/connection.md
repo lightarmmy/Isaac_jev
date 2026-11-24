@@ -27,3 +27,9 @@
 MCP 可用时，server command 填当前 Python executable，args 填技能脚本绝对路径和 `mcp`。dsh 的具体配置入口按当前安装界面操作；CLI 方式无需 MCP 配置。
 
 可读取项目 `.local/isaac-skill/service.log` 和 `events.jsonl` 诊断实际目标、执行前后状态与中断原因。只关闭工具服务使用脚本 shutdown，它不停止 L40S 模型或采集桥。
+
+更新代码后优先使用 `python <技能目录>/scripts/isaac_tools.py restart`，或项目 `Restart_Skill_Tools.cmd`。该命令先检查日志、事件和 PID 文件写入条件，再关闭旧服务；正在自动游玩时会拒绝重启，先停止会话。只检查启动条件可运行 `preflight`。`setup` 对已在运行的服务仍是只读、幂等检查。
+
+仅主 `service.log` 不可追加而其他运行文件可写时，启动器自动选用同目录 `service-<随机标识>.log`，返回实际路径和 warnings。若整个运行目录对当前进程只读，restart 会在关闭旧服务前失败，需通过有项目写权限的启动环境运行。WinError 5 本身不能证明 ACL 损坏，不应据此删除日志或重置整个目录 ACL。
+
+网络切换可导致 SSH 隧道断开。doctor 会实际探测缓存连接；失败时会显示 127.0.0.1 的策略端口和 `Start_Server_Tunnel.cmd` 提示，失效连接不会继续报 ready。重新建立隧道后再运行 doctor/check，继续用户已授权的测试。

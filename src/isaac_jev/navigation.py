@@ -17,6 +17,11 @@ def is_shop_item(entity):
 DOOR_DIRECTIONS={0:(-1,0),1:(0,-1),2:(1,0),3:(0,1),4:(-1,0),5:(0,-1),6:(1,0),7:(0,1)}
 
 
+class NavigationBlocked(ValueError):
+    def __init__(self,message,reason_code="path_unreachable",recoverable=False):
+        super().__init__(message);self.reason_code=reason_code;self.recoverable=recoverable
+
+
 class Navigator:
     def __init__(self,frame,target):
         self.room_id=frame["room"]["id"];self.target=target;self.last_position=None;self.stuck=0
@@ -25,10 +30,12 @@ class Navigator:
         self.mask_cells=None;self.mask={};self.mask_origin=(0,0)
         self.pending_inputs={}
         self.input_delay=2
+        self.recovery_started=None;self.recovery_last=None;self.recovery_frames=0;self.recovery_attempts=0;self.recovery_reason=None
 
     def describe(self):
         return {"revision":self.revision,"stage":self.stage,"goal":self.goal,
-            "waypoint_index":self.waypoint_index,"waypoints":self.route,"stuck_frames":self.stuck,"input_delay_frames":self.input_delay}
+            "waypoint_index":self.waypoint_index,"waypoints":self.route,"stuck_frames":self.stuck,"input_delay_frames":self.input_delay,
+            "recovery_reason":self.recovery_reason,"recovery_frames":self.recovery_frames,"recovery_attempts":self.recovery_attempts}
 
     def command_feedback(self,frame,action,result):
         provisional=frame["game_frame"]+self.input_delay
@@ -61,25 +68,35 @@ class Navigator:
                 obstacles.append(Obstacle(xy(e["position"]),(radius+size+12,)*2,kind,"circle"))
         return obstacles
 
-    def segment_clear(self,frame,a,b,obstacles,door_exit=False):
-        if any(o.blocks(a,b) for o in obstacles):return False
-        if door_exit:return True # Only the aligned selected door can cross room bounds.
+    def room_contains(self,frame,pos,allow_doors=True):
         rx,ry=player_radius(frame);tl=xy(frame["room"]["top_left"]);br=xy(frame["room"]["bottom_right"])
-        def inside(pos):return tl[0]+rx<=pos[0]<=br[0]-rx and tl[1]+ry<=pos[1]<=br[1]-ry
-        if not inside(a) or not inside(b):return False
+        inside=tl[0]+rx<=pos[0]<=br[0]-rx and tl[1]+ry<=pos[1]<=br[1]-ry
         cells=frame["room"].get("navigation_cells",[])
-        if cells and len(cells[0])>4:
+        if inside and cells and len(cells[0])>4:
             width=frame["room"]["grid_width"]
             if cells is not self.mask_cells:
                 self.mask_cells=cells;self.mask={int(c[0]):bool(c[4]) for c in cells}
                 first=cells[0];row,col=divmod(int(first[0]),width)
                 self.mask_origin=(first[1]-col*40,first[2]-row*40)
-            steps=max(1,math.ceil(distance(a,b)/10))
-            for i in range(steps+1):
-                pos=(a[0]+(b[0]-a[0])*i/steps,a[1]+(b[1]-a[1])*i/steps)
-                col=math.floor((pos[0]-self.mask_origin[0])/40+.5);row=math.floor((pos[1]-self.mask_origin[1])/40+.5)
-                if not 0<=col<width or row<0 or not self.mask.get(row*width+col,False):return False
-        return True
+            col=math.floor((pos[0]-self.mask_origin[0])/40+.5);row=math.floor((pos[1]-self.mask_origin[1])/40+.5)
+            inside=0<=col<width and row>=0 and self.mask.get(row*width+col,False)
+        if inside:return True
+        if allow_doors:
+            for door in frame["room"].get("doors",[]):
+                if not (door.get("open") or door.get("locked")):continue
+                outward=DOOR_DIRECTIONS.get(door.get("slot"))
+                if outward is None:continue
+                d=xy(door["position"]);axis=0 if outward[0] else 1;cross=1-axis
+                anchor=(max(tl[0]+rx+2,min(br[0]-rx-2,d[0])),max(tl[1]+ry+2,min(br[1]-ry-2,d[1])))
+                depth=(pos[axis]-d[axis])*outward[axis];inner=(anchor[axis]-d[axis])*outward[axis]
+                half_width=max(2,20-(ry if cross else rx))
+                if inner-2<=depth<=max(rx,ry)+14 and abs(pos[cross]-d[cross])<=half_width:return True
+        return False
+
+    def segment_clear(self,frame,a,b,obstacles,door_exit=False):
+        if any(o.blocks(a,b) for o in obstacles):return False
+        steps=max(1,math.ceil(distance(a,b)/5))
+        return all(self.room_contains(frame,(a[0]+(b[0]-a[0])*i/steps,a[1]+(b[1]-a[1])*i/steps)) for i in range(steps+1))
 
     def path(self,frame,goal):
         room=frame["room"];cells=room.get("navigation_cells",[])
@@ -87,7 +104,7 @@ class Navigator:
         start=xy(frame["player"]["position"]);obstacles=self.obstacles(frame)
         if self.segment_clear(frame,start,goal,obstacles):return [start,goal],obstacles
         width=room["grid_width"];points={int(c[0]):(float(c[1]),float(c[2])) for c in cells}
-        valid={i for i,pos in points.items() if self.segment_clear(frame,pos,pos,obstacles)}
+        valid={i for i,pos in points.items() if self.room_contains(frame,pos,allow_doors=False) and self.segment_clear(frame,pos,pos,obstacles)}
         if not valid:raise ValueError("No supported walkable path")
         sources=sorted(valid,key=lambda i:distance(points[i],start));ends=sorted(valid,key=lambda i:distance(points[i],goal))
         source=next((i for i in sources if self.segment_clear(frame,start,points[i],obstacles)),None)
@@ -168,10 +185,34 @@ class Navigator:
         self.pending_inputs[n+self.input_delay]=(move,hold)
         return Action(MOVES.index(move)*5,False,hold)
 
-    def trajectory_clear(self,frame,points,obstacles,door_exit=False):
+    def trajectory_clear(self,frame,points,obstacles,door_exit=False,exit_door=None):
         # A delayed command can start with stationary prediction samples inside
         # conservative padding. Those samples must not veto an outward escape.
-        return all(self.segment_clear(frame,a,b,obstacles,door_exit) for a,b in zip(points,points[1:]) if distance(a,b)>1e-6)
+        for a,b in zip(points,points[1:]):
+            if exit_door:
+                outward=DOOR_DIRECTIONS[exit_door["slot"]];d=xy(exit_door["position"])
+                pa=(a[0]-d[0])*outward[0]+(a[1]-d[1])*outward[1]
+                pb=(b[0]-d[0])*outward[0]+(b[1]-d[1])*outward[1]
+                # Beyond the portal belongs to another room. Validate only up to
+                # the known crossing plane; the mod clears input on room change.
+                if pa>=0:return self.room_contains(frame,a)
+                if pb>=0:
+                    t=-pa/(pb-pa);crossing=(a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t)
+                    return self.segment_clear(frame,a,crossing,obstacles)
+            if distance(a,b)>1e-6 and not self.segment_clear(frame,a,b,obstacles,door_exit):return False
+        return True
+
+    def recover(self,frame,reason):
+        n=frame["game_frame"]
+        if self.recovery_started is None:self.recovery_started=n;self.recovery_last=n;self.recovery_attempts+=1
+        self.recovery_frames+=max(0,n-self.recovery_last);self.recovery_last=n;self.recovery_reason=reason;self.stage="settling"
+        if n-self.recovery_started>=10 or self.recovery_frames>=30:
+            raise NavigationBlocked("Navigation recovery exhausted: "+reason,"momentum_recovery_exhausted",True)
+        return self.make_action((0,0),1,n)
+
+    def recovered(self,n):
+        if self.recovery_last is not None:self.recovery_frames+=max(0,n-self.recovery_last)
+        self.recovery_started=None;self.recovery_last=None;self.recovery_reason=None
 
     def step(self,frame):
         if frame["room"]["id"]!=self.room_id:raise ValueError("Navigation room changed")
@@ -184,18 +225,24 @@ class Navigator:
         goal,door=self.target_position(frame)
         if goal is None:return None
         obstacles=self.obstacles(frame);signature=(tuple(obstacles),bool(frame["player"].get("can_fly")))
-        if self.goal is None or distance(goal,self.goal)>4 or signature!=self.signature or not self.route:
-            self.route,_=self.path(frame,goal);self.goal=goal;self.signature=signature;self.waypoint_index=1;self.revision+=1
         velocity=xy(frame["player"].get("velocity",{}));self.stage="approach"
         if door:
             outward=DOOR_DIRECTIONS[door["slot"]];cross=1 if outward[0] else 0
             plane=(pos[0]-goal[0])*outward[0]+(pos[1]-goal[1])*outward[1]
             aligned=abs(pos[cross]-xy(door["position"])[cross])<=5 and abs(velocity[cross])<.4
-            if plane>=-6 and aligned:
+            if plane>=-6 and aligned and self.room_contains(frame,pos):
                 self.stage="cross_door";points=self.motion(frame,outward,2)
-                if not self.trajectory_clear(frame,points,obstacles,door_exit=True):raise ValueError("Door approach blocked")
+                if not self.trajectory_clear(frame,points,obstacles,exit_door=door):return self.recover(frame,"door momentum or clearance")
+                if not self.route:self.route=[pos,xy(door["position"])];self.waypoint_index=1;self.revision+=1
+                self.goal=goal;self.recovered(n)
                 return self.make_action(outward,2,n)
             if plane>=-18:self.stage="align_door"
+        if self.goal is None or distance(goal,self.goal)>4 or signature!=self.signature or not self.route:
+            try:self.route,_=self.path(frame,goal)
+            except ValueError as exc:
+                if self.room_contains(frame,pos) and math.hypot(*velocity)>.25:return self.recover(frame,"start momentum")
+                raise NavigationBlocked(str(exc)) from exc
+            self.goal=goal;self.signature=signature;self.waypoint_index=1;self.revision+=1
         # Progress is monotonic; visibility permits skipping a corner, not
         # snapping backwards to a newly selected nearest grid centre.
         visible=[i for i in range(self.waypoint_index,len(self.route)) if self.segment_clear(frame,pos,self.route[i],obstacles)]
@@ -203,7 +250,8 @@ class Navigator:
         waypoint=self.route[self.waypoint_index];pending,predicted_velocity,_=self.pending_motion(frame)
         predicted=pending[-1];delta=(waypoint[0]-predicted[0],waypoint[1]-predicted[1])
         move=tuple(self.axis_input(delta[i],predicted_velocity[i]) for i in range(2))
-        hold=1 if distance(pos,waypoint)<45 or self.stage=="align_door" else 3
+        remaining=distance(pos,waypoint)
+        hold=1 if remaining<20 or self.stage=="align_door" else 2 if remaining<55 else 4
         points=self.motion(frame,move,hold)
         if not self.trajectory_clear(frame,points,obstacles):
             candidates=[]
@@ -211,6 +259,9 @@ class Navigator:
                 trajectory=self.motion(frame,alternative,1)
                 if self.trajectory_clear(frame,trajectory,obstacles):
                     cost=distance(trajectory[-1],waypoint)+3*distance(alternative,move);candidates.append((cost,alternative))
-            if not candidates:raise ValueError("Approach blocked by collision or momentum")
+            if not candidates:
+                if self.room_contains(frame,pos):return self.recover(frame,"collision or residual momentum")
+                raise NavigationBlocked("Start is outside supported room/door geometry","invalid_start",False)
             _,move=min(candidates);hold=1
+        self.recovered(n)
         return self.make_action(move,hold,n)

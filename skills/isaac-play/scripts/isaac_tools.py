@@ -9,6 +9,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 SKILL=Path(__file__).resolve().parents[1]
 
@@ -34,31 +35,77 @@ def request(path,payload=None):
     return reply
 
 
-def setup():
-    cfg=configuration();root=Path(cfg["project_root"]).resolve()
+def service_health(root):
     try:
         result=request("/health")
         if result["service"]!="isaac-play-tools-v1" or Path(result["project_root"]).resolve()!=root:
             raise RuntimeError("Port is occupied by a different project/service")
-        return {"already_running":True,**result}
-    except (OSError,urllib.error.URLError):pass
+        return result
+    except (OSError,urllib.error.URLError):return None
+
+
+def prepare_launch(cfg):
+    root=Path(cfg["project_root"]).resolve()
     if not root.exists():raise ValueError("Project path missing; edit connection.json or ISAAC_JEV_PROJECT")
     source=root/"src"
     if not (source/"isaac_jev/skill_service.py").exists():source=SKILL/"scripts/vendor"
     if not (source/"isaac_jev/skill_service.py").exists():raise ValueError("Missing packaged runtime; run the project installer")
-    env=dict(os.environ);env["PYTHONPATH"]=str(source)+os.pathsep+env.get("PYTHONPATH","")
-    local=root/".local/isaac-skill";local.mkdir(parents=True,exist_ok=True)
+    local=root/".local/isaac-skill";warnings=[]
+    try:
+        local.mkdir(parents=True,exist_ok=True)
+        # Check all files the controller needs before shutting down a live service.
+        for name in ("events.jsonl","service.pid"):
+            with (local/name).open("ab"):pass
+    except OSError as exc:
+        raise PermissionError(f"Cannot write service state at {local}: {exc}. Run the project launcher with workspace write access; a read-only sandbox cannot restart this service.") from exc
+    log_path=local/"service.log"
+    try:
+        with log_path.open("ab"):pass
+    except OSError as exc:
+        alternate=local/("service-"+uuid.uuid4().hex[:8]+".log")
+        try:
+            with alternate.open("ab"):pass
+        except OSError as alternate_error:
+            raise PermissionError(f"Cannot open service logs at {local}: {alternate_error}. Check this process's write access before changing ACLs.") from alternate_error
+        warnings.append(f"Cannot append {log_path}: {exc}; using {alternate}.");log_path=alternate
+    return {"cfg":cfg,"root":root,"source":source,"local":local,"log_path":log_path,"warnings":warnings}
+
+
+def preflight():
+    cfg=configuration();root=Path(cfg["project_root"]).resolve();health=service_health(root);plan=prepare_launch(cfg)
+    return {"writable":True,"service_running":health is not None,"log_path":str(plan["log_path"]),"warnings":plan["warnings"]}
+
+
+def setup(plan=None):
+    cfg=configuration();root=Path(cfg["project_root"]).resolve();health=service_health(root)
+    if health:return {"already_running":True,**health}
+    plan=plan or prepare_launch(cfg);local=plan["local"];log_path=plan["log_path"]
+    env=dict(os.environ);env["PYTHONPATH"]=str(plan["source"])+os.pathsep+env.get("PYTHONPATH","")
     args=[sys.executable,"-u","-m","isaac_jev.skill_service","--project-root",str(root),"--port",str(cfg.get("port",9530)),
           "--bridge-port",str(cfg.get("bridge_port",9527)),"--policy-port",str(cfg.get("policy_port",19528))]
-    with (local/"service.log").open("ab",buffering=0) as log:
+    with log_path.open("ab",buffering=0) as log:
         proc=subprocess.Popen(args,cwd=root,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0,start_new_session=os.name!="nt")
     (local/"service.pid").write_text(str(proc.pid))
     for _ in range(40):
-        if proc.poll() is not None:raise RuntimeError("Tool service failed; inspect "+str(local/"service.log"))
-        try:return {"started":True,**request("/health")}
-        except (OSError,urllib.error.URLError):time.sleep(0.25)
-    raise RuntimeError("Tool service not ready; inspect "+str(local/"service.log"))
+        if proc.poll() is not None:raise RuntimeError("Tool service failed; inspect "+str(log_path))
+        health=service_health(root)
+        if health:return {"started":True,"log_path":str(log_path),"warnings":plan["warnings"],**health}
+        time.sleep(0.25)
+    raise RuntimeError("Tool service not ready; inspect "+str(log_path))
+
+
+def restart():
+    cfg=configuration();root=Path(cfg["project_root"]).resolve();health=service_health(root)
+    plan=prepare_launch(cfg) # A denied preflight must leave the current service running.
+    if health:
+        if call("observe_game",{}).get("autoplay"):raise RuntimeError("Stop the automatic session before restarting the tool service")
+        request("/call",{"tool":"shutdown_service","arguments":{}})
+        for _ in range(40):
+            if service_health(root) is None:break
+            time.sleep(0.25)
+        else:raise RuntimeError("Previous tool service has not stopped; no replacement was launched")
+    return setup(plan)
 
 
 def call(name,args):return request("/call",{"tool":name,"arguments":args}).get("result")
@@ -147,7 +194,7 @@ def mcp():
 def main(argv=None):
     if hasattr(sys.stdout,"reconfigure"):sys.stdout.reconfigure(encoding="utf-8")
     parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest="command",required=True)
-    for name in ("setup","list","mcp","shutdown"):sub.add_parser(name)
+    for name in ("setup","list","mcp","shutdown","preflight","restart"):sub.add_parser(name)
     p=sub.add_parser("call");p.add_argument("tool");source=p.add_mutually_exclusive_group()
     source.add_argument("--args-file",type=Path);source.add_argument("--json")
     source.add_argument("--arg",nargs=2,action="append",metavar=("NAME","VALUE"),help="Typed primitive parameter; repeat for other fields or string-array entries")
@@ -156,6 +203,8 @@ def main(argv=None):
     try:
         if args.command=="mcp":mcp();return
         if args.command=="setup":result=setup()
+        elif args.command=="preflight":result=preflight()
+        elif args.command=="restart":result=restart()
         elif args.command=="list":result=request("/tools")["tools"]
         elif args.command=="shutdown":result=request("/call",{"tool":"shutdown_service","arguments":{}})
         elif args.command=="check":result=check_game(args.interval)
