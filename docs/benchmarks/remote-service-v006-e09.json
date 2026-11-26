@@ -1,0 +1,157 @@
+{
+  "checkpoint": "combat-v006-e09-epoch006",
+  "checkpoint_epoch": 6,
+  "ready": true,
+  "live_rpc_action_matches": 32,
+  "samples": 32,
+  "timings": [
+    {
+      "request_ms": 52.68,
+      "model_ms": 49.78
+    },
+    {
+      "request_ms": 51.58,
+      "model_ms": 48.792
+    },
+    {
+      "request_ms": 70.5,
+      "model_ms": 67.366
+    },
+    {
+      "request_ms": 51.89,
+      "model_ms": 49.171
+    },
+    {
+      "request_ms": 52.05,
+      "model_ms": 49.072
+    },
+    {
+      "request_ms": 52.87,
+      "model_ms": 49.988
+    },
+    {
+      "request_ms": 50.29,
+      "model_ms": 47.811
+    },
+    {
+      "request_ms": 52.02,
+      "model_ms": 49.061
+    },
+    {
+      "request_ms": 52.14,
+      "model_ms": 49.037
+    },
+    {
+      "request_ms": 52.08,
+      "model_ms": 49.024
+    },
+    {
+      "request_ms": 53.84,
+      "model_ms": 50.65
+    },
+    {
+      "request_ms": 51.8,
+      "model_ms": 49.025
+    },
+    {
+      "request_ms": 52.27,
+      "model_ms": 49.11
+    },
+    {
+      "request_ms": 52.01,
+      "model_ms": 48.928
+    },
+    {
+      "request_ms": 51.97,
+      "model_ms": 48.947
+    },
+    {
+      "request_ms": 51.51,
+      "model_ms": 48.679
+    },
+    {
+      "request_ms": 51.75,
+      "model_ms": 48.72
+    },
+    {
+      "request_ms": 51.64,
+      "model_ms": 48.74
+    },
+    {
+      "request_ms": 51.71,
+      "model_ms": 48.892
+    },
+    {
+      "request_ms": 51.77,
+      "model_ms": 48.761
+    },
+    {
+      "request_ms": 51.15,
+      "model_ms": 48.47
+    },
+    {
+      "request_ms": 51.67,
+      "model_ms": 48.737
+    },
+    {
+      "request_ms": 51.38,
+      "model_ms": 48.542
+    },
+    {
+      "request_ms": 51.81,
+      "model_ms": 48.659
+    },
+    {
+      "request_ms": 50.95,
+      "model_ms": 48.252
+    },
+    {
+      "request_ms": 51.25,
+      "model_ms": 48.424
+    },
+    {
+      "request_ms": 51.77,
+      "model_ms": 48.906
+    },
+    {
+      "request_ms": 51.55,
+      "model_ms": 48.518
+    },
+    {
+      "request_ms": 51.45,
+      "model_ms": 48.634
+    },
+    {
+      "request_ms": 51.9,
+      "model_ms": 48.731
+    },
+    {
+      "request_ms": 51.81,
+      "model_ms": 48.715
+    },
+    {
+      "request_ms": 51.42,
+      "model_ms": 48.572
+    }
+  ],
+  "backend": {
+    "checkpoint": "combat-v006-e09-epoch006",
+    "gpu": "NVIDIA L40S",
+    "torch": "2.6.0+cu124",
+    "cpu_threads": 1,
+    "interop_threads": 1,
+    "flash_linear_attention": "0.4.0",
+    "causal_conv1d": null,
+    "pad_multiple": 512,
+    "max_tokens": 3072,
+    "dtype": "bfloat16",
+    "warmup_lengths": [
+      512,
+      1024,
+      1536,
+      2048,
+      2560,
+      3072
+    ]
+  }
+}

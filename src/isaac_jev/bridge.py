@@ -24,7 +24,7 @@ class BridgeServer:
         self._recording_run = None
         self._room_timeline = RoomTimeline()
         self.latest = None
-        self._recent_frames = deque(maxlen=19)
+        self._recent_frames = deque(maxlen=241)
         self.last_received = None
         self.mod_writer = None
         self.hello = None
@@ -262,6 +262,16 @@ class BridgeServer:
             if payload.get("include_history") and self.latest:
                 from .features import history_summary
                 result["policy_history"] = history_summary(self.latest, list(self._recent_frames)[:-1])
+                if payload.get('include_semantic_history'):
+                    from .features_v007 import semantic_history_summary
+                    result['semantic_history'] = semantic_history_summary(self.latest, list(self._recent_frames)[:-1])
+                if payload.get('include_feedback_history'):
+                    from .features_v009 import history_summary as feedback_history
+                    result['feedback_history']=feedback_history(self.latest,list(self._recent_frames)[:-1])
+                if payload.get('include_tactical_history'):
+                    from .features_v010 import history_summary as tactical_history
+                    # Route geometry may be expensive; let frame reception continue during it.
+                    result['tactical_history'] = await asyncio.to_thread(tactical_history, result['frame'], list(self._recent_frames)[:-1])
             return result
         if operation not in {"set_mode", "action", "ping"}:
             return {"ok": False, "error": "unknown control command"}
@@ -295,6 +305,13 @@ class BridgeServer:
                 if not 0 <= self.latest["game_frame"] - observed < MAX_OBSERVATION_AGE_FRAMES:
                     raise ValueError("action already expired or from future frame")
                 command = action.as_command({"run_id": payload["run_id"], "room": {"id": payload["room_id"]}, "game_frame": observed})
+                if payload.get('charge_hold') is not None:
+                    if type(payload['charge_hold']) is not bool:raise ValueError('Invalid charge hold')
+                    command['charge_hold']=payload['charge_hold']
+                if payload.get('handoff_room_id') is not None:
+                    if not isinstance(payload['handoff_room_id'],str):raise ValueError('Invalid charge handoff room')
+                    command['handoff_room_id']=payload['handoff_room_id']
+                if payload.get('controller_phase') in {'combat','navigation'}:command['controller_phase']=payload['controller_phase']
                 if timing is None:command.pop("execution_timing") # Legacy clients keep their original cutoff.
             else:
                 command = {"command": "ping"}

@@ -20,4 +20,4 @@ isaac-jev = "isaac_jev.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-isaac_jev = ["rules/*.txt"]
+isaac_jev = ["rules/*.txt","rules/*.json"]

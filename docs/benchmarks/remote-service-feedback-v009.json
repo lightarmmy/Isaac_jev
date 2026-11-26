@@ -1,0 +1,226 @@
+{
+  "ready": true,
+  "checkpoint": "combat-v009-feedback-s01-epoch001",
+  "group": "s01",
+  "checkpoint_epoch": 1,
+  "manifest_valid": true,
+  "native_gpu_cached_action_matches": 32,
+  "samples": 32,
+  "feature_version": "combat-feedback-v9-s01",
+  "numeric_size": 965,
+  "backend": {
+    "checkpoint": "combat-v009-feedback-s01-epoch001",
+    "gpu": "NVIDIA L40S",
+    "torch": "2.6.0+cu124",
+    "cpu_threads": 1,
+    "interop_threads": 1,
+    "flash_linear_attention": "0.4.0",
+    "causal_conv1d": null,
+    "pad_multiple": 512,
+    "max_tokens": 3072,
+    "dtype": "bfloat16",
+    "warmup_lengths": [
+      512,
+      1024,
+      1536,
+      2048,
+      2560,
+      3072
+    ]
+  },
+  "rollback_backup": "/xufanghui/isaac-jev/.local/semantic-switch-backup-20261125T125215Z",
+  "timings": [
+    {
+      "rpc_ms": 55.56,
+      "model_ms": 51.73,
+      "server_ms": 55.085,
+      "tokens": 1535
+    },
+    {
+      "rpc_ms": 56.057,
+      "model_ms": 52.54,
+      "server_ms": 55.623,
+      "tokens": 1596
+    },
+    {
+      "rpc_ms": 53.717,
+      "model_ms": 50.568,
+      "server_ms": 53.329,
+      "tokens": 1361
+    },
+    {
+      "rpc_ms": 55.285,
+      "model_ms": 51.758,
+      "server_ms": 54.888,
+      "tokens": 1659
+    },
+    {
+      "rpc_ms": 56.366,
+      "model_ms": 52.825,
+      "server_ms": 55.974,
+      "tokens": 1654
+    },
+    {
+      "rpc_ms": 56.598,
+      "model_ms": 53.084,
+      "server_ms": 56.234,
+      "tokens": 1662
+    },
+    {
+      "rpc_ms": 54.562,
+      "model_ms": 51.381,
+      "server_ms": 54.159,
+      "tokens": 1315
+    },
+    {
+      "rpc_ms": 56.047,
+      "model_ms": 52.173,
+      "server_ms": 55.58,
+      "tokens": 1826
+    },
+    {
+      "rpc_ms": 58.331,
+      "model_ms": 54.468,
+      "server_ms": 57.878,
+      "tokens": 1797
+    },
+    {
+      "rpc_ms": 56.13,
+      "model_ms": 52.57,
+      "server_ms": 55.679,
+      "tokens": 1541
+    },
+    {
+      "rpc_ms": 58.578,
+      "model_ms": 54.61,
+      "server_ms": 58.129,
+      "tokens": 1940
+    },
+    {
+      "rpc_ms": 56.9,
+      "model_ms": 53.266,
+      "server_ms": 56.48,
+      "tokens": 1680
+    },
+    {
+      "rpc_ms": 58.593,
+      "model_ms": 54.589,
+      "server_ms": 58.102,
+      "tokens": 1734
+    },
+    {
+      "rpc_ms": 59.005,
+      "model_ms": 53.746,
+      "server_ms": 58.497,
+      "tokens": 1806
+    },
+    {
+      "rpc_ms": 57.761,
+      "model_ms": 53.453,
+      "server_ms": 57.16,
+      "tokens": 1840
+    },
+    {
+      "rpc_ms": 58.337,
+      "model_ms": 54.474,
+      "server_ms": 57.855,
+      "tokens": 1615
+    },
+    {
+      "rpc_ms": 59.263,
+      "model_ms": 55.307,
+      "server_ms": 58.768,
+      "tokens": 1791
+    },
+    {
+      "rpc_ms": 56.095,
+      "model_ms": 52.257,
+      "server_ms": 55.609,
+      "tokens": 1578
+    },
+    {
+      "rpc_ms": 57.078,
+      "model_ms": 52.893,
+      "server_ms": 56.297,
+      "tokens": 1643
+    },
+    {
+      "rpc_ms": 57.053,
+      "model_ms": 53.114,
+      "server_ms": 56.539,
+      "tokens": 1861
+    },
+    {
+      "rpc_ms": 57.235,
+      "model_ms": 53.332,
+      "server_ms": 56.753,
+      "tokens": 1885
+    },
+    {
+      "rpc_ms": 56.624,
+      "model_ms": 53.043,
+      "server_ms": 56.158,
+      "tokens": 1653
+    },
+    {
+      "rpc_ms": 58.91,
+      "model_ms": 54.912,
+      "server_ms": 58.404,
+      "tokens": 1866
+    },
+    {
+      "rpc_ms": 76.315,
+      "model_ms": 71.738,
+      "server_ms": 75.714,
+      "tokens": 2053
+    },
+    {
+      "rpc_ms": 61.057,
+      "model_ms": 56.659,
+      "server_ms": 60.5,
+      "tokens": 1995
+    },
+    {
+      "rpc_ms": 56.332,
+      "model_ms": 52.652,
+      "server_ms": 55.884,
+      "tokens": 1656
+    },
+    {
+      "rpc_ms": 75.965,
+      "model_ms": 71.68,
+      "server_ms": 75.507,
+      "tokens": 2141
+    },
+    {
+      "rpc_ms": 57.544,
+      "model_ms": 53.543,
+      "server_ms": 57.095,
+      "tokens": 1973
+    },
+    {
+      "rpc_ms": 67.917,
+      "model_ms": 61.548,
+      "server_ms": 67.476,
+      "tokens": 1969
+    },
+    {
+      "rpc_ms": 83.89,
+      "model_ms": 77.895,
+      "server_ms": 83.455,
+      "tokens": 1801
+    },
+    {
+      "rpc_ms": 74.244,
+      "model_ms": 70.4,
+      "server_ms": 73.812,
+      "tokens": 1736
+    },
+    {
+      "rpc_ms": 56.429,
+      "model_ms": 52.416,
+      "server_ms": 55.997,
+      "tokens": 1953
+    }
+  ]
+}

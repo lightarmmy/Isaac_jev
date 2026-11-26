@@ -1,0 +1,630 @@
+{
+  "result": {
+    "group": "s01",
+    "epochs": 30,
+    "selected_epoch": 2,
+    "trainable_parameters": 980225,
+    "validation": {
+      "samples": 3513,
+      "move_nll": 1.9128908091652879,
+      "shoot_nll": 0.8492559448728662,
+      "quality_weighted_nll": 2.712927609107509,
+      "selection_nll": 2.427067674422779,
+      "group_weighted_nll": {
+        "ordinary": 2.802950838457067,
+        "boss": 2.0511845103884907
+      },
+      "move_accuracy": 0.2815257614574438,
+      "shoot_accuracy": 0.6834614289780814,
+      "joint_accuracy": 0.20324508966695132,
+      "stay_fraction": 0.17278679191574153,
+      "idle_fraction": 0.03387418161115855,
+      "ordinal_aux_nll": 0.6111569732190361,
+      "predicted_actions": {
+        "20": 172,
+        "24": 381,
+        "21": 142,
+        "4": 66,
+        "14": 111,
+        "11": 164,
+        "16": 96,
+        "1": 162,
+        "6": 28,
+        "19": 413,
+        "3": 109,
+        "23": 523,
+        "8": 17,
+        "18": 212,
+        "2": 151,
+        "22": 72,
+        "17": 120,
+        "33": 1,
+        "7": 70,
+        "13": 59,
+        "0": 119,
+        "10": 3,
+        "15": 238,
+        "5": 33,
+        "9": 45,
+        "41": 5,
+        "12": 1
+      },
+      "scope": "Offline weighted imitation; no measured live survival or DPS"
+    },
+    "test": {
+      "samples": 3079,
+      "move_nll": 1.881412124509895,
+      "shoot_nll": 0.7745360782991256,
+      "quality_weighted_nll": 2.564190178335252,
+      "selection_nll": 2.3387686022577974,
+      "group_weighted_nll": {
+        "ordinary": 2.6434944583515945,
+        "boss": 2.0340427461640003
+      },
+      "move_accuracy": 0.3108151997401754,
+      "shoot_accuracy": 0.7294576161091263,
+      "joint_accuracy": 0.24975641442026633,
+      "stay_fraction": 0.18317635595972717,
+      "idle_fraction": 0.026956804157193894,
+      "ordinal_aux_nll": 0.5536763792195938,
+      "predicted_actions": {
+        "18": 427,
+        "3": 57,
+        "23": 478,
+        "8": 39,
+        "13": 60,
+        "16": 102,
+        "1": 271,
+        "11": 115,
+        "19": 184,
+        "24": 221,
+        "7": 80,
+        "22": 110,
+        "12": 7,
+        "2": 92,
+        "14": 26,
+        "9": 28,
+        "21": 115,
+        "4": 61,
+        "6": 94,
+        "15": 103,
+        "17": 81,
+        "20": 179,
+        "0": 83,
+        "10": 7,
+        "5": 51,
+        "30": 1,
+        "33": 1,
+        "38": 5,
+        "36": 1
+      },
+      "scope": "Offline weighted imitation; no measured live survival or DPS"
+    },
+    "checkpoint": "/xufanghui/isaac-jev-quality-v008/artifacts/combat-v007/combat-v007-s01",
+    "retained_heads": 30,
+    "selection_uses_test": false,
+    "scope": "Offline training complete; gameplay comparison remains separate",
+    "initialization_validation": {
+      "samples": 3513,
+      "move_nll": 1.905465603553431,
+      "shoot_nll": 0.8308908857241879,
+      "quality_weighted_nll": 2.7075986540771027,
+      "selection_nll": 2.4674823477595633,
+      "group_weighted_nll": {
+        "ordinary": 2.7843862717468557,
+        "boss": 2.150578423772271
+      },
+      "move_accuracy": 0.28807287218901223,
+      "shoot_accuracy": 0.690293196697979,
+      "joint_accuracy": 0.2134927412467976,
+      "stay_fraction": 0.41673783091374894,
+      "idle_fraction": 0.06917164816396243,
+      "ordinal_aux_nll": 0.5369091571658704,
+      "predicted_actions": {
+        "0": 243,
+        "4": 455,
+        "19": 568,
+        "24": 140,
+        "14": 32,
+        "11": 30,
+        "1": 320,
+        "16": 67,
+        "6": 10,
+        "3": 253,
+        "10": 11,
+        "20": 83,
+        "23": 336,
+        "18": 202,
+        "8": 11,
+        "2": 193,
+        "17": 82,
+        "7": 65,
+        "22": 17,
+        "13": 15,
+        "15": 281,
+        "5": 27,
+        "21": 26,
+        "9": 45,
+        "40": 1
+      },
+      "scope": "Offline weighted imitation; no measured live survival or DPS"
+    }
+  },
+  "baseline_s01": {
+    "group": "s01",
+    "epochs": 30,
+    "selected_epoch": 1,
+    "trainable_parameters": 980225,
+    "validation": {
+      "samples": 3513,
+      "move_nll": 1.905465603553431,
+      "shoot_nll": 0.8308908857241879,
+      "quality_weighted_nll": 2.7075986540771027,
+      "selection_nll": 2.4674823477595633,
+      "group_weighted_nll": {
+        "ordinary": 2.7843862717468557,
+        "boss": 2.150578423772271
+      },
+      "move_accuracy": 0.28807287218901223,
+      "shoot_accuracy": 0.690293196697979,
+      "joint_accuracy": 0.2134927412467976,
+      "stay_fraction": 0.41673783091374894,
+      "idle_fraction": 0.06917164816396243,
+      "ordinal_aux_nll": 0.5369091571658704,
+      "predicted_actions": {
+        "0": 243,
+        "4": 455,
+        "19": 568,
+        "24": 140,
+        "14": 32,
+        "11": 30,
+        "1": 320,
+        "16": 67,
+        "6": 10,
+        "3": 253,
+        "10": 11,
+        "20": 83,
+        "23": 336,
+        "18": 202,
+        "8": 11,
+        "2": 193,
+        "17": 82,
+        "7": 65,
+        "22": 17,
+        "13": 15,
+        "15": 281,
+        "5": 27,
+        "21": 26,
+        "9": 45,
+        "40": 1
+      },
+      "scope": "Offline weighted imitation; no measured live survival or DPS"
+    },
+    "test": {
+      "samples": 3079,
+      "move_nll": 1.907290203767227,
+      "shoot_nll": 0.7965903509820812,
+      "quality_weighted_nll": 2.638647274040421,
+      "selection_nll": 2.4249729598570178,
+      "group_weighted_nll": {
+        "ordinary": 2.710759046248783,
+        "boss": 2.1391868734652526
+      },
+      "move_accuracy": 0.29977265345891524,
+      "shoot_accuracy": 0.7067229620006495,
+      "joint_accuracy": 0.22117570639818124,
+      "stay_fraction": 0.42578759337447225,
+      "idle_fraction": 0.10457940889899318,
+      "ordinal_aux_nll": 0.5058491097913859,
+      "predicted_actions": {
+        "3": 182,
+        "18": 417,
+        "8": 35,
+        "23": 290,
+        "1": 391,
+        "16": 102,
+        "19": 250,
+        "4": 283,
+        "24": 67,
+        "15": 170,
+        "13": 30,
+        "7": 64,
+        "22": 37,
+        "2": 133,
+        "11": 56,
+        "9": 43,
+        "21": 9,
+        "5": 30,
+        "6": 32,
+        "0": 322,
+        "17": 70,
+        "14": 13,
+        "10": 25,
+        "20": 26,
+        "12": 1,
+        "38": 1
+      },
+      "scope": "Offline weighted imitation; no measured live survival or DPS"
+    },
+    "checkpoint": "/xufanghui/isaac-jev-v007/artifacts/combat-v007/combat-v007-s01",
+    "retained_heads": 30,
+    "selection_uses_test": false,
+    "scope": "Offline training complete; gameplay comparison remains separate"
+  },
+  "filter": {
+    "version": "complete-room-no-damage-quality-v1",
+    "max_train": 2000,
+    "per_room": 96,
+    "minimum_gap_estimate": 8,
+    "rooms_audited": 108,
+    "damage_free_completed_rooms": 56,
+    "selected_rooms": 47,
+    "row_rejections": {
+      "no_progress_or_mechanical_wait_evidence": 1310,
+      "narrow_or_unstable_movement": 4094,
+      "room_not_verified_damage_free": 7130,
+      "outside_complete_successful_visit": 87,
+      "uncertain_or_unsupported_outcome": 5
+    },
+    "selected_actions": {
+      "7": 40,
+      "17": 36,
+      "19": 68,
+      "39": 19,
+      "0": 64,
+      "20": 25,
+      "5": 18,
+      "1": 136,
+      "6": 19,
+      "16": 44,
+      "11": 78,
+      "21": 42,
+      "24": 67,
+      "4": 59,
+      "29": 8,
+      "9": 17,
+      "34": 20,
+      "32": 25,
+      "3": 49,
+      "13": 22,
+      "38": 15,
+      "36": 15,
+      "26": 10,
+      "44": 16,
+      "18": 53,
+      "28": 23,
+      "2": 79,
+      "12": 16,
+      "10": 4,
+      "23": 78,
+      "43": 16,
+      "15": 24,
+      "35": 8,
+      "31": 4,
+      "25": 6,
+      "30": 7,
+      "33": 32,
+      "8": 20,
+      "14": 39,
+      "41": 20,
+      "22": 27,
+      "27": 12,
+      "42": 3,
+      "37": 3,
+      "40": 1
+    },
+    "scope": "Only train filtered; original validation/test unchanged. Raw labels/prompts/numeric preserved."
+  },
+  "counts": {
+    "train": 1387,
+    "validation": 3513,
+    "test": 3079
+  },
+  "initialization_validation": {
+    "samples": 3513,
+    "move_nll": 1.905465603553431,
+    "shoot_nll": 0.8308908857241879,
+    "quality_weighted_nll": 2.7075986540771027,
+    "selection_nll": 2.4674823477595633,
+    "group_weighted_nll": {
+      "ordinary": 2.7843862717468557,
+      "boss": 2.150578423772271
+    },
+    "move_accuracy": 0.28807287218901223,
+    "shoot_accuracy": 0.690293196697979,
+    "joint_accuracy": 0.2134927412467976,
+    "stay_fraction": 0.41673783091374894,
+    "idle_fraction": 0.06917164816396243,
+    "ordinal_aux_nll": 0.5369091571658704,
+    "predicted_actions": {
+      "0": 243,
+      "4": 455,
+      "19": 568,
+      "24": 140,
+      "14": 32,
+      "11": 30,
+      "1": 320,
+      "16": 67,
+      "6": 10,
+      "3": 253,
+      "10": 11,
+      "20": 83,
+      "23": 336,
+      "18": 202,
+      "8": 11,
+      "2": 193,
+      "17": 82,
+      "7": 65,
+      "22": 17,
+      "13": 15,
+      "15": 281,
+      "5": 27,
+      "21": 26,
+      "9": 45,
+      "40": 1
+    },
+    "scope": "Offline weighted imitation; no measured live survival or DPS"
+  },
+  "package": {
+    "complete": true,
+    "archive": "/xufanghui/isaac-jev-quality-v008/.local/quality-results.zip",
+    "bytes": 129279850,
+    "sha256": "1abd589ee530cf360104ee48f7aeeb34bab504cd768daa22f3c50334b2fb6771",
+    "retained_heads": 30,
+    "manifests_checked": 31,
+    "counts": {
+      "train": 1387,
+      "validation": 3513,
+      "test": 3079
+    },
+    "filter": {
+      "version": "complete-room-no-damage-quality-v1",
+      "max_train": 2000,
+      "per_room": 96,
+      "minimum_gap_estimate": 8,
+      "rooms_audited": 108,
+      "damage_free_completed_rooms": 56,
+      "selected_rooms": 47,
+      "row_rejections": {
+        "no_progress_or_mechanical_wait_evidence": 1310,
+        "narrow_or_unstable_movement": 4094,
+        "room_not_verified_damage_free": 7130,
+        "outside_complete_successful_visit": 87,
+        "uncertain_or_unsupported_outcome": 5
+      },
+      "selected_actions": {
+        "7": 40,
+        "17": 36,
+        "19": 68,
+        "39": 19,
+        "0": 64,
+        "20": 25,
+        "5": 18,
+        "1": 136,
+        "6": 19,
+        "16": 44,
+        "11": 78,
+        "21": 42,
+        "24": 67,
+        "4": 59,
+        "29": 8,
+        "9": 17,
+        "34": 20,
+        "32": 25,
+        "3": 49,
+        "13": 22,
+        "38": 15,
+        "36": 15,
+        "26": 10,
+        "44": 16,
+        "18": 53,
+        "28": 23,
+        "2": 79,
+        "12": 16,
+        "10": 4,
+        "23": 78,
+        "43": 16,
+        "15": 24,
+        "35": 8,
+        "31": 4,
+        "25": 6,
+        "30": 7,
+        "33": 32,
+        "8": 20,
+        "14": 39,
+        "41": 20,
+        "22": 27,
+        "27": 12,
+        "42": 3,
+        "37": 3,
+        "40": 1
+      },
+      "scope": "Only train filtered; original validation/test unchanged. Raw labels/prompts/numeric preserved."
+    },
+    "selected_epoch": 2,
+    "checkpoint": "combat-v008-quality-s01-epoch002"
+  },
+  "local_manifests_checked": 31,
+  "verification": {
+    "runtime_fixture_matches": 32,
+    "live_feature_rpc_checks": 32,
+    "minimum_cosine": 0.9999998807907104,
+    "candidate_order_invariance": false,
+    "checkpoint_manifest_checked": true,
+    "scope": "Fresh GPU encoder RPC + retained head; no game input or model switch"
+  },
+  "rpc_verification": {
+    "group": "s01",
+    "checkpoint": "combat-v008-quality-s01-epoch002",
+    "fresh_prediction_rpc_matches": 32,
+    "samples": 32,
+    "head_device": "cpu",
+    "backbone": "existing warmed GPU encoder",
+    "timings": [
+      {
+        "model_ms": 72.658,
+        "gpu_encoder_rpc_ms": 70.76,
+        "head_cpu_ms": 1.898
+      },
+      {
+        "model_ms": 71.467,
+        "gpu_encoder_rpc_ms": 70.458,
+        "head_cpu_ms": 1.009
+      },
+      {
+        "model_ms": 54.117,
+        "gpu_encoder_rpc_ms": 53.22,
+        "head_cpu_ms": 0.897
+      },
+      {
+        "model_ms": 71.79,
+        "gpu_encoder_rpc_ms": 70.879,
+        "head_cpu_ms": 0.911
+      },
+      {
+        "model_ms": 71.763,
+        "gpu_encoder_rpc_ms": 70.859,
+        "head_cpu_ms": 0.904
+      },
+      {
+        "model_ms": 71.986,
+        "gpu_encoder_rpc_ms": 70.923,
+        "head_cpu_ms": 1.063
+      },
+      {
+        "model_ms": 72.297,
+        "gpu_encoder_rpc_ms": 71.14,
+        "head_cpu_ms": 1.157
+      },
+      {
+        "model_ms": 53.407,
+        "gpu_encoder_rpc_ms": 52.425,
+        "head_cpu_ms": 0.983
+      },
+      {
+        "model_ms": 71.872,
+        "gpu_encoder_rpc_ms": 70.922,
+        "head_cpu_ms": 0.95
+      },
+      {
+        "model_ms": 53.682,
+        "gpu_encoder_rpc_ms": 52.793,
+        "head_cpu_ms": 0.888
+      },
+      {
+        "model_ms": 71.847,
+        "gpu_encoder_rpc_ms": 70.876,
+        "head_cpu_ms": 0.971
+      },
+      {
+        "model_ms": 72.357,
+        "gpu_encoder_rpc_ms": 71.366,
+        "head_cpu_ms": 0.991
+      },
+      {
+        "model_ms": 73.371,
+        "gpu_encoder_rpc_ms": 72.459,
+        "head_cpu_ms": 0.912
+      },
+      {
+        "model_ms": 53.064,
+        "gpu_encoder_rpc_ms": 52.194,
+        "head_cpu_ms": 0.87
+      },
+      {
+        "model_ms": 71.477,
+        "gpu_encoder_rpc_ms": 70.523,
+        "head_cpu_ms": 0.954
+      },
+      {
+        "model_ms": 71.875,
+        "gpu_encoder_rpc_ms": 70.988,
+        "head_cpu_ms": 0.887
+      },
+      {
+        "model_ms": 54.187,
+        "gpu_encoder_rpc_ms": 53.203,
+        "head_cpu_ms": 0.984
+      },
+      {
+        "model_ms": 71.512,
+        "gpu_encoder_rpc_ms": 70.605,
+        "head_cpu_ms": 0.906
+      },
+      {
+        "model_ms": 71.42,
+        "gpu_encoder_rpc_ms": 70.552,
+        "head_cpu_ms": 0.868
+      },
+      {
+        "model_ms": 71.898,
+        "gpu_encoder_rpc_ms": 71.025,
+        "head_cpu_ms": 0.873
+      },
+      {
+        "model_ms": 71.134,
+        "gpu_encoder_rpc_ms": 70.262,
+        "head_cpu_ms": 0.872
+      },
+      {
+        "model_ms": 72.637,
+        "gpu_encoder_rpc_ms": 71.712,
+        "head_cpu_ms": 0.925
+      },
+      {
+        "model_ms": 53.846,
+        "gpu_encoder_rpc_ms": 52.978,
+        "head_cpu_ms": 0.867
+      },
+      {
+        "model_ms": 71.228,
+        "gpu_encoder_rpc_ms": 70.373,
+        "head_cpu_ms": 0.854
+      },
+      {
+        "model_ms": 53.116,
+        "gpu_encoder_rpc_ms": 52.258,
+        "head_cpu_ms": 0.858
+      },
+      {
+        "model_ms": 70.79,
+        "gpu_encoder_rpc_ms": 69.895,
+        "head_cpu_ms": 0.895
+      },
+      {
+        "model_ms": 71.577,
+        "gpu_encoder_rpc_ms": 70.676,
+        "head_cpu_ms": 0.902
+      },
+      {
+        "model_ms": 71.856,
+        "gpu_encoder_rpc_ms": 70.943,
+        "head_cpu_ms": 0.913
+      },
+      {
+        "model_ms": 71.817,
+        "gpu_encoder_rpc_ms": 70.909,
+        "head_cpu_ms": 0.908
+      },
+      {
+        "model_ms": 71.92,
+        "gpu_encoder_rpc_ms": 71.052,
+        "head_cpu_ms": 0.868
+      },
+      {
+        "model_ms": 87.532,
+        "gpu_encoder_rpc_ms": 86.641,
+        "head_cpu_ms": 0.892
+      },
+      {
+        "model_ms": 72.197,
+        "gpu_encoder_rpc_ms": 71.255,
+        "head_cpu_ms": 0.942
+      }
+    ],
+    "no_game_inputs": true,
+    "no_live_policy_switch": true,
+    "scope": "Protocol/contract/cached-action verification; not native deployment latency"
+  },
+  "scope": "Human quality-subset fine-tuning, not teacher distillation/RL; no live gameplay measured."
+}

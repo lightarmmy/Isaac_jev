@@ -103,6 +103,7 @@ def main():
     p.add_argument("--exclude-active-items",action="store_true",help="Exclude rooms with active item use/input and disable active policy context/output")
     p.add_argument("--action-lag-frames",type=int,default=1,help="Align actions this many logic frames after observation (1..6)")
     p.add_argument("--without-control-context",action="store_true",help="Keep physical history, omit explicit previous key labels from policy input")
+    p.add_argument('--feature-profile',choices=['combat-build-terrain-weapons-v5'],default=None)
     p=sub.add_parser("train");p.add_argument("dataset");p.add_argument("--output",required=True);p.add_argument("--model",default="Qwen/Qwen3.5-2B");p.add_argument("--epochs",type=int,default=10);p.add_argument("--max-length",type=int,default=3072);p.add_argument("--device",default="cuda");p.add_argument("--revision",default="main")
     p.add_argument("--feature-batch-size",type=int,default=16,help="Batch size for frozen feature extraction")
     p.add_argument("--feature-pad-multiple",type=int,default=0,help="Pad frozen-feature batches to fixed token buckets (0 disables)")
@@ -137,7 +138,7 @@ def main():
         from .training import prepare_dataset
         if set(args.validation_run)&set(args.test_run):parser.error("A run cannot be both validation and test")
         overrides={**{run:"validation" for run in args.validation_run},**{run:"test" for run in args.test_run}}
-        prepare_dataset(Path(args.recordings),Path(args.output),args.stride,split_overrides=overrides,outcome_window_frames=args.outcome_window_frames,exclude_active_items=args.exclude_active_items,action_lag_frames=args.action_lag_frames,control_context=not args.without_control_context)
+        prepare_dataset(Path(args.recordings),Path(args.output),args.stride,split_overrides=overrides,outcome_window_frames=args.outcome_window_frames,exclude_active_items=args.exclude_active_items,action_lag_frames=args.action_lag_frames,control_context=not args.without_control_context,feature_profile=args.feature_profile)
     elif args.cmd=="train":
         from .training import train
         train(args)

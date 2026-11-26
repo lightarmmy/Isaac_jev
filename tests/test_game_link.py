@@ -14,7 +14,7 @@ from isaac_jev.mock import sample_frame
 from isaac_jev.presentation import AgentPresentation
 from isaac_jev.protocol import encode, decode
 from isaac_jev.recording import iter_messages
-from isaac_jev.server_link import ServerLink, connection_options
+from isaac_jev.server_link import ServerLink, ForwardServer, connection_options
 from isaac_jev.skill_service import ToolRegistry
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -26,6 +26,15 @@ except ImportError:
 
 
 class LinkValidationTests(unittest.TestCase):
+    def test_forwarder_disables_nagle_on_every_accepted_socket(self):
+        class Handler:
+            pass
+        with ForwardServer(('127.0.0.1',0),Handler) as server:
+            with socket.create_connection(server.server_address,timeout=2) as client:
+                accepted,_=server.get_request()
+                try:self.assertEqual(accepted.getsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY),1)
+                finally:accepted.close()
+
     def test_connection_fields_are_data_not_shell_commands(self):
         self.assertEqual(connection_options({"host":"10.28.0.22","password":"test $() password"}),
                          ("10.28.0.22",31203,"root","test $() password"))
@@ -67,6 +76,7 @@ class GameLinkTests(unittest.IsolatedAsyncioTestCase):
             link=ServerLink(tmp,local_port=0);client=forwarder=None
             try:
                 client,forwarder=await asyncio.to_thread(link._start,'127.0.0.1',listener.getsockname()[1],'root','dummy')
+                self.assertEqual(client.get_transport().sock.getsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY),1)
                 def round_trip():
                     with socket.create_connection(forwarder.server_address,timeout=5) as local:
                         local.sendall(b'ping\n');return local.recv(4096)

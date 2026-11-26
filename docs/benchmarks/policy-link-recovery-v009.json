@@ -1,0 +1,25 @@
+{
+  "ready": true,
+  "checkpoint": "combat-v009-feedback-s01-epoch001",
+  "prediction_ok": true,
+  "rpc_ms": 66.3,
+  "model_ms": 53.224,
+  "observation": {
+    "run_id": "isaac-seed:2024087779",
+    "room_id": "1:0:84",
+    "game_frame": 2492
+  },
+  "action_id": 15,
+  "game_frame_age_ms": 181203,
+  "mode": "manual",
+  "hp": {
+    "rotten": 0,
+    "soul": 0,
+    "black_mask": 0,
+    "red": 6,
+    "bone": 0,
+    "max_red": 6
+  },
+  "no_game_input_sent": true,
+  "cause": "Remote V009 service was healthy; old local SSH forwarding no longer worked"
+}

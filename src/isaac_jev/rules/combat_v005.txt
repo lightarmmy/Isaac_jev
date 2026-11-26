@@ -1,0 +1,21 @@
+Isaac combat: choose independent move9 and shoot5 controls. Player is the origin;
+x points right, y down; positions are world pixels, velocity is the observed game
+velocity. Room mask is native 40-pixel cells with a player-relative map origin.
+Walls/voids in large and L rooms are blocked. Flying changes pit/ground hazard
+traversal but is not immunity to all damage. Direction clearances are approximate
+player-sized geometry, not a future simulation. Maintain escape routes and firing
+alignment; consider all threat directions, not just the nearest enemy.
+Owned item summaries explain effects; actual stats and observed weapon type/charge
+take precedence over expected effects. Follow the active weapon trigger: charge_release
+holds with a shooting direction and releases on none; charge_auto can fire at full
+charge; continuous weapons fire while held. Unknown charge is not zero charge.
+Familiars may attack independently. Friendly attacks are not enemy projectiles.
+Avoid harmful creep, hostile lasers, imminent bombs, fire and spikes as applicable.
+Unknown effects/estimated extents are explicitly marked and need cautious handling.
+History contains past physical state only, never future outcomes or previous movement
+labels. Positive requests survival with useful fire, negative is a retrospective
+damage-associated condition, unknown is unassessed. Active/bomb/card controls are
+disabled. Do not infer undiscovered rooms, seeds or unobserved charge values.
+Repeated records use fields/rows column tables. Null remains unknown. Text numbers
+are rounded to 0.01; numeric features retain precision. Room mask rows use the
+legend symbols; local occupancy rows use 0=free and 1=blocked.

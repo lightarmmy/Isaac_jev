@@ -19,6 +19,7 @@ local EXECUTION_TIMING = "start-relative-v1"
 local serverStatus, agentDisplay = {state="unknown"}, {agent_state="offline"}
 local displayExpires, noticeExpires, notice, hudVisible = 0, 0, "", true
 local HUD_X, HUD_Y = 10, 155
+local shootingLatch, lastWeapons, lastShoot, shootHeldFrames = nil, {}, nil, 0
 
 local function arr(t) return setmetatable(t or {}, {__json_array=true}) end
 local function read(o, k, default)
@@ -34,6 +35,11 @@ local function call(o, k, default, ...)
 end
 local function vec(v)
     return {x=read(v,"X",0), y=read(v,"Y",0)}
+end
+local function optionalVec(v)
+    local x,y=read(v,"X",nil),read(v,"Y",nil)
+    if type(x)~="number" or type(y)~="number" then return nil end
+    return {x=x,y=y}
 end
 local function flagData(flags)
     if type(flags)=="number" or type(flags)=="string" then return flags end
@@ -89,6 +95,7 @@ local function clearCommand(reason)
     command=nil
 end
 local function setControlMode(nextMode,reason)
+    shootingLatch=nil
     clearCommand(reason or "mode_changed")
     local previous=mode
     mode=nextMode;controlReason=reason or "requested_mode";controlRevision=controlRevision+1
@@ -99,6 +106,7 @@ local function setControlMode(nextMode,reason)
     end
 end
 local function clearControl(reason)
+    shootingLatch=nil
     clearCommand(reason or "manual_reset")
     -- Repeated paused renders must not flood the raw event stream.
     if mode~="manual" then setControlMode("manual",reason or "manual_reset") end
@@ -134,7 +142,8 @@ local function connect()
     if not connected then s:close();lastError=tostring(err);return end
     s:settimeout(0);pcall(function() s:setoption("tcp-nodelay",true) end)
     sock=s;rx="";tx="";clearControl("reconnected");lastError=""
-    emit({type="hello",client="isaac_mod",mod_version="0.5.0",input_timing=EXECUTION_TIMING,capture_phase="pre_update",
+    emit({type="hello",client="isaac_mod",mod_version="0.7.0",input_timing=EXECUTION_TIMING,capture_phase="pre_update",
+          weapon_schema=1,charge_latch=true,combat_schema=3,
           repentogon=REPENTOGON~=nil,run_id=runId,logic_hz=30})
     print("[IsaacJev] connected to Python; MANUAL mode")
 end
@@ -183,6 +192,22 @@ local function handle(msg)
     if msg.execution_timing~=nil and msg.execution_timing~=EXECUTION_TIMING then acknowledge(msg,false,"invalid execution timing");return end
     local hold=msg.hold_frames or (msg.valid_until_frame-msg.observation_frame)
     if type(hold)~="number" or hold~=math.floor(hold) or hold<1 or hold>6 then acknowledge(msg,false,"invalid hold duration");return end
+    if msg.charge_hold~=nil and type(msg.charge_hold)~="boolean" then acknowledge(msg,false,"invalid charge hold");return end
+    if msg.handoff_room_id~=nil then
+        local allowed=false
+        for slot=0,7 do
+            local door=Game():GetRoom():GetDoor(slot)
+            if door and door:IsOpen() and (runId~="") then
+                local level=Game():GetLevel();local desc=call(level,"GetCurrentRoomDesc",nil)
+                local neighbors=call(desc,"GetNeighboringRooms",{}) or {}
+                local index=read(neighbors[slot],"SafeGridIndex",read(neighbors[slot],"GridIndex",read(door,"TargetRoomIndex",nil)))
+                local target=tostring(level:GetStage())..":"..tostring(level:GetStageType())..":"..tostring(index)
+                if target==msg.handoff_room_id then allowed=true end
+            end
+        end
+        if not allowed then acknowledge(msg,false,"invalid charge handoff destination");return end
+    end
+    if not msg.charge_hold or (msg.shoot.x==0 and msg.shoot.y==0) then shootingLatch=nil end
     clearCommand("replaced")
     command=msg;command.hold_frames=hold;command.started_frame=nil;command.active_frame=nil;command.stop_frame=nil;lastRequest=msg.request_id
     acknowledge(msg,true,mode=="shadow" and "shadow only" or "accepted")
@@ -321,6 +346,26 @@ local function inventory(p)
             trinkets=arr({p:GetTrinket(0),p:GetTrinket(1)}),collectibles=itemCache,
             card=p:GetCard(0),pill_color=p:GetPill(0)}
 end
+local function weaponData(w,slot)
+    if not w then return nil end
+    local charge,maxCharge=call(w,"GetCharge",nil),call(w,"GetMaxCharge",nil)
+    return {slot=slot,type=call(w,"GetWeaponType",nil),charge=charge,max_charge=maxCharge,
+        charge_ratio=type(charge)=="number" and type(maxCharge)=="number" and maxCharge>0 and math.max(0,math.min(1,charge/maxCharge)) or nil,
+        fire_delay=call(w,"GetFireDelay",nil),max_fire_delay=call(w,"GetMaxFireDelay",nil),
+        num_fired=call(w,"GetNumFired",nil),modifiers=call(w,"GetModifiers",nil),owner_type=read(call(w,"GetOwner",nil),"Type",nil)}
+end
+local function playerWeapons(p,held)
+    local result=arr()
+    for slot=1,2 do
+        local state=weaponData(call(p,"GetWeapon",nil,slot),slot)
+        if state then result[#result+1]=state end
+    end
+    lastWeapons=result
+    local shoot=held.shoot
+    if lastShoot and lastShoot.x==shoot.x and lastShoot.y==shoot.y and (shoot.x~=0 or shoot.y~=0) then shootHeldFrames=shootHeldFrames+1 else shootHeldFrames=0 end
+    lastShoot={x=shoot.x,y=shoot.y}
+    return result
+end
 local function gridKind(t)
     local enums=GridEntityType or {}
     for _,entry in ipairs({{"GRID_STAIRS","stairs"},{"GRID_TRAPDOOR","trapdoor"},{"GRID_TELEPORTER","teleporter"},
@@ -370,8 +415,9 @@ local function entityData(e)
     local bomb=call(e,"ToBomb",nil)
     local pickup=call(e,"ToPickup",nil)
     local effect=call(e,"ToEffect",nil)
+    local familiar=call(e,"ToFamiliar",nil)
     local kind=(e.Type==(EntityType.ENTITY_SLOT or 6)) and "slot" or n and "enemy" or projectile and "projectile" or tear and "tear"
-               or laser and "laser" or bomb and "bomb" or pickup and "pickup" or effect and "effect" or "other"
+               or laser and "laser" or bomb and "bomb" or pickup and "pickup" or effect and "effect" or familiar and "familiar" or "other"
     local flags=call(e,"GetEntityFlags",0)
     local friendly=e:HasEntityFlags(EntityFlag.FLAG_FRIENDLY) or e:HasEntityFlags(EntityFlag.FLAG_CHARM)
     local config=pickup and e.Variant==100 and Isaac.GetItemConfig():GetCollectible(e.SubType) or nil
@@ -379,6 +425,7 @@ local function entityData(e)
     local curse=call(Game():GetLevel(),"GetCurses",0)
     if pickup and e.Variant==100 and LevelCurse and LevelCurse.CURSE_OF_BLIND then blind=blind or (curse & LevelCurse.CURSE_OF_BLIND)~=0 end
     local spawner=read(e,"SpawnerEntity",nil)
+    local target=n and call(n,"GetPlayerTarget",nil) or nil
     return {uid=tostring(e.Index)..":"..tostring(e.InitSeed),kind=kind,type=e.Type,variant=e.Variant,subtype=e.SubType,
             position=vec(e.Position),velocity=vec(e.Velocity),size=e.Size,size_multi=vec(e.SizeMulti),
             hp=e.HitPoints,max_hp=e.MaxHitPoints,frame_count=e.FrameCount,
@@ -386,6 +433,10 @@ local function entityData(e)
             flags=flags,friendly=friendly,visible=e.Visible,dead=e:IsDead(),
             vulnerable=call(e,"IsVulnerableEnemy",false),active_enemy=call(e,"IsActiveEnemy",false,false),
             animation=call(sprite,"GetAnimation",""),animation_frame=call(sprite,"GetFrame",0),
+            overlay_animation=call(sprite,"GetOverlayAnimation",nil),overlay_frame=call(sprite,"GetOverlayFrame",nil),
+            sprite_offset=optionalVec(read(e,"SpriteOffset",nil)),position_offset=optionalVec(read(e,"PositionOffset",nil)),
+            npc_target_position=optionalVec(read(n,"TargetPosition",nil)),
+            observed_target_position=optionalVec(read(target,"Position",nil)),observed_target_type=read(target,"Type",nil),
             state=read(n,"State",nil),state_frame=read(n,"StateFrame",nil),
             projectile_flags=flagData(read(projectile,"ProjectileFlags",nil)),tear_flags=flagData(read(tear,"TearFlags",nil)),height=read(projectile or tear,"Height",nil),
             falling_speed=read(projectile or tear,"FallingSpeed",nil),falling_accel=read(projectile or tear,"FallingAccel",nil),
@@ -398,7 +449,11 @@ local function entityData(e)
             pickup_blind=blind,pickup_name=not blind and config and itemText(read(config,"Name","")) or nil,
             pickup_description=not blind and config and itemText(read(config,"Description","")) or nil,
             pickup_quality=not blind and read(config,"Quality",nil) or nil,pickup_item_type=not blind and read(config,"Type",nil) or nil,
-            owner_type=read(spawner,"Type",nil),effect_timeout=read(effect,"Timeout",nil)}
+            owner_type=read(spawner,"Type",read(read(familiar,"Player",nil),"Type",nil)),effect_timeout=read(effect,"Timeout",nil),
+            effect_radius=read(effect,"Radius",nil),effect_scale=read(effect,"Scale",nil),
+            familiar_owner_index=read(read(familiar,"Player",nil),"Index",nil),
+            familiar_weapon=familiar and weaponData(call(familiar,"GetWeapon",nil),0) or nil,
+            spawn_threat=n and e.FrameCount<3 and call(n,"IsActiveEnemy",false,false) or false}
 end
 local function roomData(p)
     local r=Game():GetRoom()
@@ -438,7 +493,14 @@ local function snapshot()
     end
     local held=humanInput(p)
     local currentRoom=roomId()
-    if currentRoom~=lastRoom then clearCommand("room_changed");lastRoom=currentRoom;floorCache=nil;inventoryCount=-1;appliedControls=nil end
+    if currentRoom~=lastRoom then
+        clearCommand("room_changed")
+        if shootingLatch and shootingLatch.handoff_room_id==currentRoom and shootingLatch.run_id==runId then
+            shootingLatch.room_id=currentRoom;shootingLatch.handoff_room_id=nil
+        elseif shootingLatch and shootingLatch.room_id~=currentRoom then shootingLatch=nil end
+        lastRoom=currentRoom;floorCache=nil;inventoryCount=-1;appliedControls=nil
+    end
+    local weapons=playerWeapons(p,held)
     sequence=sequence+1
     return {type="frame",protocol_version=VERSION,run_id=runId,seq=sequence,game_frame=frameNo(),
             capture_phase="pre_update",game_time_ms=Isaac.GetTime(),mode=mode,
@@ -448,16 +510,21 @@ local function snapshot()
                     health={red=p:GetHearts(),max_red=p:GetMaxHearts(),soul=p:GetSoulHearts(),
                             black_mask=p:GetBlackHearts(),bone=call(p,"GetBoneHearts",0),rotten=call(p,"GetRottenHearts",0)},
                     stats={damage=p.Damage,move_speed=p.MoveSpeed,shot_speed=p.ShotSpeed,
-                           max_fire_delay=p.MaxFireDelay,tear_height=p.TearHeight,tear_flags=flagData(p.TearFlags)},
+                           max_fire_delay=p.MaxFireDelay,tear_height=p.TearHeight,tear_range=read(p,"TearRange",nil),luck=read(p,"Luck",nil),tear_flags=flagData(p.TearFlags)},
+                    weapons=weapons,weapon_type=call(p,"GetWeaponType",nil),shoot_direction=held.shoot,
+                    fire_direction=call(p,"GetFireDirection",nil),
+                    shoot_holding=held.shoot.x~=0 or held.shoot.y~=0,shoot_held_frames=shootHeldFrames,
                     active=activeItem(p),inventory=inventory(p)},
             planner_stats={luck=read(p,"Luck",nil),tear_range=read(p,"TearRange",nil)},
             human_input=held,entities=entities,execution=command or {},applied_controls=appliedControls or {},
+            shooting_latch=shootingLatch or {},weapon_schema=1,combat_schema=3,
             bridge={dropped_frames=drops},supported_player_count=Game():GetNumPlayers()}
 end
 
 mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED,function(_,continued)
     runId=runKey()
     sequence=0;lastRoom=nil;inventoryCount=-1;inventoryCheckedAt=-1000;floorCache=nil;clearCommand("run_started");previousHeld={};appliedControls=nil
+    shootingLatch=nil;lastShoot=nil;shootHeldFrames=0
     emit({type="event",event="run_started",run_id=runId,continued=continued,game_frame=frameNo()})
 end)
 if ModCallbacks.MC_PRE_UPDATE then
@@ -509,15 +576,39 @@ mod:AddCallback(ModCallbacks.MC_POST_RENDER,function()
     if message then Isaac.RenderText(hudText(message),HUD_X,HUD_Y+50,1,0.7,0.4,1) end
     Isaac.RenderText("Isaac Jev: "..mode.." | "..(sock and "CONNECTED" or lastError).." | "..rec.." | F8: HUMAN",HUD_X,HUD_Y,1,1,1,1)
 end)
+local function latchInput(action,hook)
+    local latch=shootingLatch
+    if not latch or mode~="ai" or not sock or Game():IsPaused() then return nil end
+    if frameNo()>=latch.expires_frame or Isaac.GetTime()>=latch.expires_time or latch.run_id~=runId or (latch.room_id~=roomId() and latch.handoff_room_id~=roomId()) then shootingLatch=nil;return nil end
+    local active
+    if action==ButtonAction.ACTION_SHOOTLEFT then active=latch.shoot.x<0
+    elseif action==ButtonAction.ACTION_SHOOTRIGHT then active=latch.shoot.x>0
+    elseif action==ButtonAction.ACTION_SHOOTUP then active=latch.shoot.y<0
+    elseif action==ButtonAction.ACTION_SHOOTDOWN then active=latch.shoot.y>0
+    else return nil end
+    if hook~=InputHook.GET_ACTION_VALUE and hook~=InputHook.IS_ACTION_PRESSED and hook~=InputHook.IS_ACTION_TRIGGERED then return nil end
+    local now=frameNo()
+    if not appliedControls or appliedControls.game_frame~=now then appliedControls={game_frame=now,run_id=runId,room_id=roomId(),requests=arr()} end
+    local record=appliedControls.requests[#appliedControls.requests]
+    if not record or record.request_id~=latch.request_id then
+        record={request_id=latch.request_id,action_id=latch.action_id,source="charge_latch",queried={},pressed={}}
+        appliedControls.requests[#appliedControls.requests+1]=record
+    end
+    record.queried[tostring(action)]=true;record.pressed[tostring(action)]=active
+    if hook==InputHook.GET_ACTION_VALUE then return active and 1.0 or 0.0 end
+    return active
+end
 mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
-    if mode~="ai" or not command or not sock or Game():IsPaused() then return nil end
+    if mode~="ai" or not sock or Game():IsPaused() then return nil end
     local p=player0()
     if not p or not entity or entity.Type~=EntityType.ENTITY_PLAYER or entity.Index~=p.Index then return nil end
-    if command.run_id~=runId or command.room_id~=roomId() then clearCommand("run_room_changed");return nil end
+    if p:IsDead() then clearControl("player_dead");return nil end
+    if not command then return latchInput(action,hook) end
+    if command.run_id~=runId or command.room_id~=roomId() then clearCommand("run_room_changed");return latchInput(action,hook) end
     -- valid_until is the deadline to START a fresh action. A started v1 action
     -- has its own bounded stop frame. Legacy actions retain the original cutoff.
     if (not command.started_frame or command.execution_timing~=EXECUTION_TIMING) and frameNo()>=command.valid_until_frame then
-        clearCommand("expired_before_start");return nil
+        clearCommand("expired_before_start");return latchInput(action,hook)
     end
     local active
     if action==ButtonAction.ACTION_LEFT then active=command.move.x<0
@@ -536,11 +627,18 @@ mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
         command.started_frame=now;command.active_frame=now
         command.stop_frame=now+command.hold_frames
         if command.execution_timing~=EXECUTION_TIMING then command.stop_frame=math.min(command.stop_frame,command.valid_until_frame) end
+        if command.charge_hold and (command.shoot.x~=0 or command.shoot.y~=0) then
+            local primary=lastWeapons[1]
+            if primary and type(primary.max_charge)=="number" and primary.max_charge>0 then
+                shootingLatch={shoot=command.shoot,expires_frame=now+8,expires_time=Isaac.GetTime()+300,run_id=runId,room_id=roomId(),
+                    handoff_room_id=command.handoff_room_id,request_id=command.request_id,action_id=command.action_id%5}
+            end
+        end
         emit({type="event",event="action_started",request_id=command.request_id,run_id=runId,
               room_id=command.room_id,game_frame=now,observation_frame=command.observation_frame,action_id=command.action_id,
               use_active=command.use_active,stop_frame=command.stop_frame})
     end
-    if now>=command.stop_frame then clearCommand("hold_finished");return nil end
+    if now>=command.stop_frame then clearCommand("hold_finished");return latchInput(action,hook) end
     if action==ButtonAction.ACTION_ITEM then active=active and now==command.active_frame end
     -- Record actual callback queries, including all-zero model actions. The frame
     -- key is explicit because the pre-update snapshot describes the preceding input.
@@ -557,6 +655,15 @@ mod:AddCallback(ModCallbacks.MC_INPUT_ACTION,function(_,entity,hook,action)
     if hook==InputHook.IS_ACTION_PRESSED or hook==InputHook.IS_ACTION_TRIGGERED then return active end
     return nil
 end)
+if ModCallbacks.MC_POST_NPC_INIT then
+    mod:AddCallback(ModCallbacks.MC_POST_NPC_INIT,function(_,npc)
+        if call(npc,"IsActiveEnemy",false,false) and not npc:HasEntityFlags(EntityFlag.FLAG_FRIENDLY) then
+            emit({type="event",event="hostile_spawned",run_id=runId,room_id=roomId(),game_frame=frameNo(),entity_type=npc.Type})
+            if mode=="ai" and command and command.controller_phase=="navigation" then clearCommand("hostile_spawned") end
+            flushTx()
+        end
+    end)
+end
 mod:AddCallback(ModCallbacks.MC_ENTITY_TAKE_DMG,function(_,entity,amount,flags,source,countdown)
     emit({type="event",event="damage",run_id=runId,game_frame=frameNo(),entity_type=entity.Type,
           entity_uid=tostring(entity.Index)..":"..tostring(entity.InitSeed),amount=amount,flags=flags})

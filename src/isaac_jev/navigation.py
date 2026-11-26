@@ -17,6 +17,25 @@ def is_shop_item(entity):
 DOOR_DIRECTIONS={0:(-1,0),1:(0,-1),2:(1,0),3:(0,1),4:(-1,0),5:(0,-1),6:(1,0),7:(0,1)}
 
 
+def fire_obstacles(frame):
+    """Live ENTITY_FIREPLACE NPCs hurt players without counting as active enemies.
+
+    Keep this navigation geometry separate from frozen policy feature generation.
+    GRID_FIREPLACE is unused in the game's grid enum; IsVulnerableEnemy and
+    IsActiveEnemy are both false for the burning fires in the treasure-room replay.
+    """
+    radius=max(player_radius(frame));obstacles=[]
+    for entity in frame.get("entities",[]):
+        if entity.get("type")!=33 or entity.get("dead"):continue
+        hp=entity.get("hp")
+        if hp is not None and hp<=0:continue
+        if entity.get("collision_class") in {0,3}:continue
+        scale=entity.get("size_multi") or {}
+        size=max(13,float(entity.get("size") or 13))*max(1,float(scale.get("x",1)),float(scale.get("y",1)))
+        obstacles.append(Obstacle(xy(entity["position"]),(size+radius+12,)*2,"fire","circle"))
+    return obstacles
+
+
 class NavigationBlocked(ValueError):
     def __init__(self,message,reason_code="path_unreachable",recoverable=False):
         super().__init__(message);self.reason_code=reason_code;self.recoverable=recoverable
@@ -48,6 +67,9 @@ class Navigator:
 
     def obstacles(self,frame):
         radius=max(player_radius(frame));obstacles=static_obstacles(frame,avoid_interactions=True)
+        from .hazards import hazard_obstacles
+        obstacles.extend(hazard_obstacles(frame))
+        obstacles.extend(fire_obstacles(frame))
         for e in frame.get("entities",[]):
             if e.get("dead"):continue
             kind=e.get("kind");size=float(e.get("size",10))
@@ -214,8 +236,40 @@ class Navigator:
         if self.recovery_last is not None:self.recovery_frames+=max(0,n-self.recovery_last)
         self.recovery_started=None;self.recovery_last=None;self.recovery_reason=None
 
+    def escape_fire(self,frame):
+        """Leave existing fire contact before waiting or approaching a pickup.
+
+        Existing input/inertia may briefly deepen contact before a new command
+        starts. Require an improving endpoint and check all other obstacles and
+        room boundaries, rather than letting unavoidable drift veto every exit.
+        """
+        pos=xy(frame["player"]["position"])
+        touching=[o for o in fire_obstacles(frame) if o.gap(pos)<=0]
+        if not touching:return None
+        obstacles=[o for o in self.obstacles(frame) if o not in touching]
+        gap=min(o.gap(pos) for o in touching)
+        for hold in (1,3,6):
+            candidates=[]
+            for move in MOVES[1:]:
+                points=self.motion(frame,move,hold)
+                if not self.trajectory_clear(frame,points,obstacles):continue
+                if any((points[-1][0]-pos[0])*(pos[0]-o.center[0])+
+                       (points[-1][1]-pos[1])*(pos[1]-o.center[1])<0 for o in touching):continue
+                improvement=min(o.gap(points[-1])-o.gap(pos) for o in touching)
+                if improvement<=.2:continue
+                # Prefer the exit with the least further contact, then clearance.
+                worst=min(o.gap(point) for o in touching for point in points)
+                candidates.append((worst-gap,improvement,move))
+            if candidates:
+                _,_,move=max(candidates)
+                self.route=[];self.stuck=0;self.stage="escape_fire"
+                return self.make_action(move,hold,frame["game_frame"])
+        raise NavigationBlocked("No safe exit from fire contact","hazard_escape_blocked",False)
+
     def step(self,frame):
         if frame["room"]["id"]!=self.room_id:raise ValueError("Navigation room changed")
+        escape=self.escape_fire(frame)
+        if escape:return escape
         pos=xy(frame["player"]["position"]);n=frame["game_frame"]
         if n!=self.last_frame:
             if self.last_position is not None and distance(pos,self.last_position)<.2:self.stuck+=max(1,n-(self.last_frame or n))

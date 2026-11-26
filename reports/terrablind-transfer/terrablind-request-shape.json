@@ -1,0 +1,14 @@
+{
+  "scope": "Request schema with placeholders, not an actual game capture; instructions extracted verbatim from dev/agent source.",
+  "model": "jev-latest",
+  "state": "<JSON string from DecisionFacts.State(snapshot, bossNotes, constraints, attackState)>",
+  "questions": {
+    "action": {
+      "type": "choice",
+      "instructions": "Terraria boss fight. Choose one complete dodge action for the next reaction interval. Look at every boss part and shot, where each is heading and how soon it reaches me, and how much room I have. Frames until contact assumes our current velocities stay constant; use enemy health to identify its phase. Keep an escape route: do not run into a wall, floor or ceiling, or toward another threat. When safe choices are similar, favor a usable firing distance or angle for the current weapon, using the last attack state as feedback. Follow the boss notes. Each axis has its own magnitude. Small is ordinary movement, horizontal or upward Medium uses a grapple, and vertical Large uses a mount. Pick a tool only when its extra movement helps. Actions continue until the next answer.",
+      "criteria": {
+        "<ActionName(option)>": "<DecisionFacts.Describe(option, snapshot)>"
+      }
+    }
+  }
+}

@@ -5,7 +5,7 @@ UNSUPPORTED_ACTION_FILTER = "combat-bomb-room-v1"
 ACTIVE_ITEM_FILTER = "active-input-or-use-room-v1"
 
 
-def find_combat_bomb_rooms(messages):
+def find_combat_bomb_rooms(messages,combat_fn=combat_active):
     """Scan full-rate data before sampling; exclude a physical room across visits/sessions."""
     excluded = set()
     triggers = 0
@@ -23,7 +23,7 @@ def find_combat_bomb_rooms(messages):
                         and preceding["game_frame"]+1 == message["game_frame"]
                         and preceding.get("mode") == "manual")
         # A bomb can kill the last enemy before the same frame's snapshot.
-        during_combat = combat_active(message) or bool(adjacent and combat_active(preceding))
+        during_combat = combat_fn(message) or bool(adjacent and combat_fn(preceding))
         if manual and pressed and during_combat:
             excluded.add((message["run_id"], message["room"]["id"]))
             triggers += int(bool(inputs.get("bomb_trigger")))

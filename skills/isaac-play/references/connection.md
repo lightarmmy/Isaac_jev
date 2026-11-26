@@ -6,9 +6,9 @@
 
 1. 项目 `Start_Game_Link.cmd` 启动本机桥接；新启动默认不录制，已有桥接则保留录制状态。首次依赖安装用 `Setup_Game_Link.cmd`。原 `Start_Recording.cmd` 仍可直接启动并录制。
 2. 游戏控制台输入 `jev_connect 10.28.0.22:31203`，在本机密码弹窗输入密码，等待 HUD 的 SERVER: ready。也支持 `jev_connect <IP[:SSH端口]> <密码> [用户名]`，用户名默认 root；含空格的密码加双引号。游戏自己的控制台/cmd_history.txt 可能保存直接输入的密码，演示优先使用不带密码参数的弹窗形式。桥接不把认证请求写入录像/状态/日志，也不持久化密码。已有可用本地隧道会被复用，并不会把其 SSH 目标改为新 IP；要换服务器先关闭原隧道。原 `Start_Server_Tunnel.cmd` 仍可用。
-3. 使用已有 Sandboxie 实验环境运行游戏，启用 Isaac Jev Bridge 0.5.0。游戏当前已运行时，控制台执行 `luamod isaac_jev_bridge` 重载一次。随技能的 assets/isaac_jev_bridge 是对应模组，项目实验目录已安装；原 Steam 目录保持原状。`doctor` 的 `input_timing` 应为 `start-relative-v1`；旧模组会被启动检查拒绝。
+3. 使用已有 Sandboxie 实验环境运行游戏，启用 Isaac Jev Bridge 0.6.0。模组版本不足时，控制台执行 `luamod isaac_jev_bridge` 重载一次；`doctor` 已返回 0.6.0 时可继续验证。随技能的 assets/isaac_jev_bridge 是对应模组，项目实验目录已安装；原 Steam 目录保持原状。`doctor` 的 `input_timing` 应为 `start-relative-v1`。
 4. 结束旧独立 shadow/AI 客户端，F8 回人工，再取消暂停。
-5. 用工具 setup、doctor 检查，然后 start_autoplay。工具会告诉你缺少哪条通路；对连接问题做修复，不用调试命令增加资源或改变存档。
+5. 用工具 setup、doctor 检查，确认 `battle_ai.ready=true` 且 `battle_ai.backend.checkpoint` 与本次指定模型一致，当前为 `combat-v009-feedback-s01-epoch001`，再 start_autoplay。工具后台需使用对应输入生成器；代码更新后先 restart。工具会告诉你缺少哪条通路；对连接问题做修复，不用调试命令增加资源或改变存档。
 
 工具服务启动时只读取状态，start_autoplay 才申请自动控制。pause/F8 后整个自动会话停止，用户再次要求继续时显式调用 start_autoplay。
 

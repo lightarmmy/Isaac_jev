@@ -26,7 +26,7 @@ class ToolRegistry:
         schema,handler=self.tools[name]
         if set(args)-set(schema["inputSchema"]["properties"]):raise ValueError("Unknown argument")
         if any(k not in args for k in schema["inputSchema"]["required"]):raise ValueError("Missing required argument")
-        types={"string":str,"integer":int,"number":(int,float),"array":list,"object":dict}
+        types={"string":str,"integer":int,"number":(int,float),"array":list,"object":dict,'boolean':bool}
         for key,value in args.items():
             prop=schema["inputSchema"]["properties"][key];kind=prop.get("type")
             if kind in types and (not isinstance(value,types[kind]) or (kind in {"integer","number"} and type(value) is bool)):
@@ -58,11 +58,12 @@ def create_registry(runtime,store):
     async def actions_tool():return {"decision_id":runtime.memory.decision_id(),"actions":runtime.actions()}
     async def status_tool():return runtime.observe()
     async def rules_tool(topics=None):
-        rules={"scope":"Explore this floor via normal doors; collect ordinary drops and treasure-room items; inspect shops only. No shopping, chest/button/machine use, bombs, active/card/pill use or automatic stairs.",
+        rules={"objective":"Use available game resources to sustain the run, improve equipment and progress toward winning. Weigh health, useful drops, item effects, key costs, exploration opportunities and combat results. Seek reachable recovery when health is low; completing a few demo tasks is not the default stopping condition. Report capability limits honestly; finishing the floor demo is not winning the run.",
+            "scope":"Explore this floor via normal doors; collect ordinary drops and treasure-room items; inspect shops only. No shopping, chest/button/machine use, bombs, active/card/pill use or automatic stairs.",
             "controls":"One local input owner. F8/pause/disconnect cancel the automatic session. Start again only when explicitly requested.",
             "pickups":"Only choose generated IDs. Shop items must be avoided, including free shop goods. Treasure choices may be mutually exclusive. Full red-health pickups may be unavailable. Use resource/inventory changes to confirm collection.",
             "knowledge":"Game state supplies actual stats/prices. Huiji Wiki supplies item effect evidence. Unknown effects remain unknown; consult the harness browser then import a supported summary.",
-            "combat":"The L40S v004 policy controls movement/shooting only. Retain hostile residual projectiles as combat. Weapon transformations may not be supported by the trained head."}
+            "combat":"The connected L40S policy controls movement/shooting only; doctor reports its checkpoint. Retain hostile residual projectiles as combat. V005 observes weapon/charge, familiars, terrain and hazards; verify transformed weapons using weapon_profile. Supported door precharge uses execute_plan.prepare_for_combat."}
         return {k:v for k,v in rules.items() if topics is None or k in topics}
     async def doctor():
         snapshot=runtime.observe();policy=None
@@ -87,7 +88,7 @@ def create_registry(runtime,store):
     add("get_rules","Read maintained rules for scope, controls, pickups, knowledge or combat.",{"topics":{"type":"array","items":string}},[],rules_tool)
     add("get_available_actions","List legal goal IDs for the current stable decision.",{},[],actions_tool)
     add("start_autoplay","Wait up to 20 seconds for an unpaused manual game, then acquire input and connect battle AI.",{"wait_seconds":number},[],runtime.start)
-    add("execute_plan","Submit one generated goal; navigation and combat execute asynchronously.",{"decision_id":string,"action_id":string,"reason":string,"timeout_s":number},["decision_id","action_id"],runtime.execute)
+    add("execute_plan","Submit a generated goal; optional prepare_for_combat precharges supported weapons near an open door.",{"decision_id":string,"action_id":string,"reason":string,"timeout_s":number,'prepare_for_combat':{'type':'boolean'}},["decision_id","action_id"],runtime.execute)
     add("wait_for_decision","Wait for a new execution/combat/planning event, at most 25 seconds.",{"event_cursor":integer,"timeout_s":number},["event_cursor"],runtime.wait)
     add("get_execution_status","Read task status, controller phase and latest event cursor.",{},[],status_tool)
     add("stop_autoplay","Cancel all automatic input/tasks and release the current lease.",{"reason":string},[],runtime.stop)

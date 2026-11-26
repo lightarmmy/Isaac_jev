@@ -1,0 +1,160 @@
+{
+  "ready": true,
+  "checkpoint": "combat-v005-epoch7",
+  "checkpoint_epoch": 7,
+  "epoch2_reproduction_parameters_identical": true,
+  "original_epoch1_to7_metrics_match": true,
+  "service_cached_action_matches": 32,
+  "checked_samples": 32,
+  "timings": [
+    {
+      "request_ms": 55.48,
+      "model_ms": 51.755
+    },
+    {
+      "request_ms": 56.5,
+      "model_ms": 52.558
+    },
+    {
+      "request_ms": 56.44,
+      "model_ms": 52.37
+    },
+    {
+      "request_ms": 56.37,
+      "model_ms": 52.548
+    },
+    {
+      "request_ms": 56.25,
+      "model_ms": 52.331
+    },
+    {
+      "request_ms": 57.02,
+      "model_ms": 52.844
+    },
+    {
+      "request_ms": 55.09,
+      "model_ms": 51.31
+    },
+    {
+      "request_ms": 57.95,
+      "model_ms": 53.406
+    },
+    {
+      "request_ms": 57.67,
+      "model_ms": 53.208
+    },
+    {
+      "request_ms": 75.09,
+      "model_ms": 70.528
+    },
+    {
+      "request_ms": 74.96,
+      "model_ms": 70.363
+    },
+    {
+      "request_ms": 56.85,
+      "model_ms": 52.725
+    },
+    {
+      "request_ms": 75.12,
+      "model_ms": 70.328
+    },
+    {
+      "request_ms": 75.26,
+      "model_ms": 70.643
+    },
+    {
+      "request_ms": 76.04,
+      "model_ms": 70.595
+    },
+    {
+      "request_ms": 58.96,
+      "model_ms": 54.397
+    },
+    {
+      "request_ms": 75.04,
+      "model_ms": 70.533
+    },
+    {
+      "request_ms": 74.94,
+      "model_ms": 70.421
+    },
+    {
+      "request_ms": 56.76,
+      "model_ms": 52.728
+    },
+    {
+      "request_ms": 57.28,
+      "model_ms": 53.06
+    },
+    {
+      "request_ms": 56.65,
+      "model_ms": 52.682
+    },
+    {
+      "request_ms": 58.78,
+      "model_ms": 54.531
+    },
+    {
+      "request_ms": 58.66,
+      "model_ms": 54.393
+    },
+    {
+      "request_ms": 76.27,
+      "model_ms": 71.483
+    },
+    {
+      "request_ms": 56.72,
+      "model_ms": 52.592
+    },
+    {
+      "request_ms": 57.28,
+      "model_ms": 53.217
+    },
+    {
+      "request_ms": 57.81,
+      "model_ms": 53.636
+    },
+    {
+      "request_ms": 57.21,
+      "model_ms": 53.01
+    },
+    {
+      "request_ms": 56.72,
+      "model_ms": 52.593
+    },
+    {
+      "request_ms": 74.99,
+      "model_ms": 70.458
+    },
+    {
+      "request_ms": 76.44,
+      "model_ms": 71.43
+    },
+    {
+      "request_ms": 71.5,
+      "model_ms": 67.301
+    }
+  ],
+  "rollback_config": "/xufanghui/isaac-jev-v005/.local/epoch7-retest/remote-policy-before-epoch7-20261124T174254Z.json",
+  "backend": {
+    "checkpoint": "combat-v005-epoch7",
+    "gpu": "NVIDIA L40S",
+    "torch": "2.6.0+cu124",
+    "cpu_threads": 1,
+    "interop_threads": 1,
+    "flash_linear_attention": "0.4.0",
+    "causal_conv1d": null,
+    "pad_multiple": 512,
+    "max_tokens": 3072,
+    "dtype": "bfloat16",
+    "warmup_lengths": [
+      512,
+      1024,
+      1536,
+      2048,
+      2560,
+      3072
+    ]
+  }
+}

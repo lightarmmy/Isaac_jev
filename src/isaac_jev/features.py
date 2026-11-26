@@ -11,6 +11,10 @@ PROJECTILE_LIMIT = 8
 HISTORY_OFFSETS = (3, 9, 18)
 CONDITIONS = ("positive", "negative", "unknown")
 DEPLOYMENT_CONDITION = "positive"
+
+
+def extended_profile(version):
+    return version=='combat-build-terrain-weapons-v5' or isinstance(version,str) and version.startswith(('combat-experiment-v6-', 'combat-semantic-v7-', 'combat-feedback-v9-', 'combat-tactical-v10-'))
 RULES = (Path(__file__).parent / "rules" / "combat_v1.txt").read_text(encoding="utf-8")
 RULES_SHA256 = hashlib.sha256(RULES.encode()).hexdigest()
 ACTIVE_EFFECTS = {
@@ -76,10 +80,29 @@ def history_summary(frame, history):
                                      "dy": round(_xy(e.get("position"))[1]-y, 1),
                                      "vx": round(_xy(e.get("velocity"))[0], 2),
                                      "vy": round(_xy(e.get("velocity"))[1], 2)} for e in bullets[:2]]})
+        if op.get('weapons'):
+            from .weapons import weapon_state
+            summaries[-1]['weapon_charge_ratio']=weapon_state(old)['charge_ratio']
     return summaries
 
 
-def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, history_facts=None, include_active=True, include_controls=True) -> tuple[str, list[float], list[str]]:
+def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, history_facts=None, include_active=True, include_controls=True, feature_profile=None) -> tuple[str, list[float], list[str]]:
+    if isinstance(feature_profile,str) and feature_profile.startswith('combat-tactical-v10-'):
+        from .features_v010 import observation
+        return observation(frame,history,condition,history_facts,feature_profile)
+    if isinstance(feature_profile,str) and feature_profile.startswith('combat-feedback-v9-'):
+        from .features_v009 import observation
+        return observation(frame,history,condition,history_facts,feature_profile)
+    if isinstance(feature_profile, str) and feature_profile.startswith('combat-semantic-v7-'):
+        from .features_v007 import observation
+        return observation(frame, history, condition, history_facts, feature_profile)
+    if isinstance(feature_profile,str) and feature_profile.startswith('combat-experiment-v6-'):
+        from .experiments import observation
+        return observation(frame,history,condition,history_facts,feature_profile)
+    if feature_profile=='combat-build-terrain-weapons-v5':
+        from .features_v005 import observation
+        return observation(frame,history,condition,history_facts)
+    if feature_profile is not None:raise ValueError('Unknown feature profile')
     if condition not in CONDITIONS:
         raise ValueError("Unknown outcome condition")
     p, room = frame["player"], frame["room"]
@@ -168,13 +191,15 @@ def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, 
     for label in CONDITIONS:add(f"condition_{label}", int(condition == label))
     active_info={**active,"effect":ACTIVE_EFFECTS.get(int(finite(active.get("id"))),active.get("description","")),
                  "curated_effect":int(finite(active.get("id"))) in ACTIVE_EFFECTS}
-    facts={"player":{"vx":vx,"vy":vy,"health":health,"stats":stats,"can_fly":p.get("can_fly")},
+    legacy_stats={k:v for k,v in stats.items() if k in {'damage','move_speed','shot_speed','max_fire_delay','tear_height','tear_flags'}}
+    facts={"player":{"vx":vx,"vy":vy,"health":health,"stats":legacy_stats,"can_fly":p.get("can_fly")},
            "enemies":compact_enemies,"projectile_count":len(bullets),"projectiles":compact_bullets,
            "projectiles_omitted":max(0,len(bullets)-PROJECTILE_LIMIT),"move_estimates":move_summaries,
            "active_item":active_info,"previous_controls":{"move":MOVE_NAMES[previous_action//5],
                "shoot":SHOT_NAMES[previous_action%5],"use_active":previous_active},
            "history":history_summary(frame, history) if history_facts is None else history_facts,
            "unmodelled_hazards":sum(e.get("kind") in {"laser","bomb","effect"} for e in entities)}
+    facts['history']=[{k:v for k,v in h.items() if k!='weapon_charge_ratio'} for h in facts['history']]
     if not include_active:
         facts.pop("active_item")
         facts["previous_controls"].pop("use_active")
@@ -189,7 +214,7 @@ def policy_observation(frame: dict, history=(), condition=DEPLOYMENT_CONDITION, 
     prompt += "\nDesired outcome condition: " + condition + ".\nChoose combat controls."
     return prompt,values,names
 
-def contract(action_lag_frames=1,control_context=True):
+def contract(action_lag_frames=1,control_context=True,feature_profile=None):
     if type(action_lag_frames) is not int or not 1<=action_lag_frames<=6:raise ValueError("Action lag must be 1..6 frames")
     if type(control_context) is not bool:raise ValueError("control_context must be boolean")
     result={"feature_version":FEATURE_VERSION if control_context else "combat-state-history-no-controls-v4",
@@ -200,8 +225,26 @@ def contract(action_lag_frames=1,control_context=True):
             "history_offsets_frames":list(HISTORY_OFFSETS), "outcome_version":"observed-damage-window-v1",
             "deployment_condition":DEPLOYMENT_CONDITION, "normalization":"fixed-physical-scales-v1"}
     if not control_context:result["control_context"]=False
+    if isinstance(feature_profile,str) and feature_profile.startswith('combat-tactical-v10-'):
+        from .features_v010 import contract as tactical_contract
+        return tactical_contract(result,feature_profile)
+    if isinstance(feature_profile,str) and feature_profile.startswith('combat-feedback-v9-'):
+        from .features_v009 import contract as feedback_contract
+        return feedback_contract(result,feature_profile)
+    if isinstance(feature_profile, str) and feature_profile.startswith('combat-semantic-v7-'):
+        from .features_v007 import contract as semantic_contract
+        return semantic_contract(result, feature_profile)
+    if isinstance(feature_profile,str) and feature_profile.startswith('combat-experiment-v6-'):
+        from .experiments import experiment_contract
+        return experiment_contract(result,feature_profile)
+    if feature_profile=='combat-build-terrain-weapons-v5':
+        from .features_v005 import contract as v005_contract
+        return v005_contract(result)
+    if feature_profile is not None:raise ValueError('Unknown feature profile')
     return result
 
 
 def contract_for(config):
-    return contract(config.get("observation_to_action_frame_lag",1),config.get("control_context",True))
+    version=config.get('feature_version','')
+    profile=version if extended_profile(version) else None
+    return contract(config.get("observation_to_action_frame_lag",1),config.get("control_context",True),profile)

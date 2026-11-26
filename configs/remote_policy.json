@@ -1,6 +1,6 @@
 {
-  "checkpoint": "artifacts/combat-v004",
-  "warmup_dataset": "datasets/combat-v004",
+  "checkpoint": "/xufanghui/isaac-jev-feedback-v009/artifacts/combat-v007/combat-v007-s01",
+  "warmup_dataset": "/xufanghui/isaac-jev-feedback-v009/datasets/combat-v007",
   "cpu_threads": 1,
   "pad_multiple": 512
 }

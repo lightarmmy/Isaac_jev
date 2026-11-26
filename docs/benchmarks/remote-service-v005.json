@@ -1,0 +1,203 @@
+{
+  "transport": "persistent TCP through SSH local forwarding",
+  "rtt": {
+    "0": {
+      "samples": 40,
+      "median_ms": 3.489,
+      "p95_ms": 212.752,
+      "min_ms": 2.314,
+      "max_ms": 422.067
+    },
+    "4096": {
+      "samples": 40,
+      "median_ms": 3.505,
+      "p95_ms": 210.939,
+      "min_ms": 2.241,
+      "max_ms": 217.626
+    },
+    "16384": {
+      "samples": 40,
+      "median_ms": 4.068,
+      "p95_ms": 13.713,
+      "min_ms": 3.108,
+      "max_ms": 215.372
+    }
+  },
+  "policy": [
+    {
+      "case": "short",
+      "tokens": 1281,
+      "first_response_ms": 64.606,
+      "request_bytes": 6838,
+      "total": {
+        "samples": 15,
+        "median_ms": 57.95,
+        "p95_ms": 96.356,
+        "min_ms": 54.801,
+        "max_ms": 96.356
+      },
+      "model": {
+        "samples": 15,
+        "median_ms": 51.424,
+        "p95_ms": 53.655,
+        "min_ms": 49.381,
+        "max_ms": 53.655
+      },
+      "transport_and_handler": {
+        "samples": 15,
+        "median_ms": 6.795,
+        "p95_ms": 44.264,
+        "min_ms": 5.42,
+        "max_ms": 44.264
+      },
+      "within_200ms_total": true
+    },
+    {
+      "case": "median",
+      "tokens": 2075,
+      "first_response_ms": 82.374,
+      "request_bytes": 9761,
+      "total": {
+        "samples": 15,
+        "median_ms": 85.173,
+        "p95_ms": 102.549,
+        "min_ms": 83.589,
+        "max_ms": 102.549
+      },
+      "model": {
+        "samples": 15,
+        "median_ms": 77.212,
+        "p95_ms": 78.567,
+        "min_ms": 75.192,
+        "max_ms": 78.567
+      },
+      "transport_and_handler": {
+        "samples": 15,
+        "median_ms": 8.16,
+        "p95_ms": 23.982,
+        "min_ms": 6.665,
+        "max_ms": 23.982
+      },
+      "within_200ms_total": true
+    },
+    {
+      "case": "long",
+      "tokens": 2940,
+      "first_response_ms": 105.453,
+      "request_bytes": 13638,
+      "total": {
+        "samples": 15,
+        "median_ms": 103.672,
+        "p95_ms": 323.317,
+        "min_ms": 100.71,
+        "max_ms": 323.317
+      },
+      "model": {
+        "samples": 15,
+        "median_ms": 93.021,
+        "p95_ms": 97.099,
+        "min_ms": 91.95,
+        "max_ms": 97.099
+      },
+      "transport_and_handler": {
+        "samples": 15,
+        "median_ms": 9.374,
+        "p95_ms": 228.942,
+        "min_ms": 8.258,
+        "max_ms": 228.942
+      },
+      "within_200ms_total": false
+    }
+  ],
+  "backend": {
+    "checkpoint": "combat-v005",
+    "gpu": "NVIDIA L40S",
+    "torch": "2.6.0+cu124",
+    "cpu_threads": 1,
+    "interop_threads": 1,
+    "flash_linear_attention": "0.4.0",
+    "causal_conv1d": null,
+    "pad_multiple": 512,
+    "max_tokens": 3072,
+    "dtype": "bfloat16",
+    "warmup_lengths": [
+      512,
+      1024,
+      1536,
+      2048,
+      2560,
+      3072
+    ]
+  },
+  "mixed_lengths": {
+    "samples": 12,
+    "median_ms": 76.767,
+    "p95_ms": 281.965,
+    "min_ms": 61.823,
+    "max_ms": 281.965,
+    "results": [
+      {
+        "tokens": 1281,
+        "total_ms": 62.468,
+        "model_ms": 56.018
+      },
+      {
+        "tokens": 1639,
+        "total_ms": 61.823,
+        "model_ms": 54.249
+      },
+      {
+        "tokens": 1763,
+        "total_ms": 63.768,
+        "model_ms": 56.161
+      },
+      {
+        "tokens": 1974,
+        "total_ms": 67.219,
+        "model_ms": 59.572
+      },
+      {
+        "tokens": 1963,
+        "total_ms": 64.109,
+        "model_ms": 57.079
+      },
+      {
+        "tokens": 1942,
+        "total_ms": 66.543,
+        "model_ms": 59.33
+      },
+      {
+        "tokens": 2041,
+        "total_ms": 276.915,
+        "model_ms": 58.971
+      },
+      {
+        "tokens": 1976,
+        "total_ms": 281.965,
+        "model_ms": 59.665
+      },
+      {
+        "tokens": 2175,
+        "total_ms": 86.316,
+        "model_ms": 77.85
+      },
+      {
+        "tokens": 2200,
+        "total_ms": 97.704,
+        "model_ms": 78.389
+      },
+      {
+        "tokens": 2339,
+        "total_ms": 88.475,
+        "model_ms": 78.224
+      },
+      {
+        "tokens": 2940,
+        "total_ms": 97.785,
+        "model_ms": 87.547
+      }
+    ],
+    "within_200ms_total": false
+  },
+  "scope": "Prepared policy inputs through response; telemetry, feature construction and game execution excluded"
+}

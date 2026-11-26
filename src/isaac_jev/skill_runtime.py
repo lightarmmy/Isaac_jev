@@ -10,13 +10,16 @@ from collections import Counter
 from dataclasses import replace
 from .actions import Action, MAX_OBSERVATION_AGE_FRAMES, EXECUTION_TIMING
 from .bridge import request_control
-from .features import policy_observation
-from .navigation import Navigator
+from .features import policy_observation,extended_profile
+from .navigation import Navigator, NavigationBlocked, fire_obstacles
 from .remote import PolicyClient, validate_description, prediction_action
 from .rooms import combat_active
 from .skill_state import GameMemory
 from .pickups import acquisition_confirmed, pickup_consumed, PICKUP_CONFIRMATION_FRAMES
 from .presentation import AgentPresentation
+from .weapons import weapon_state
+from .actions import SHOTS
+from .navigation import DOOR_DIRECTIONS
 
 
 class GameRuntime:
@@ -25,10 +28,14 @@ class GameRuntime:
         self.memory=GameMemory();self.policy=None;self.policy_config=None;self.backend=None
         self.enabled=False;self.lease=None;self.phase="manual";self.task=None;self.generation=0
         self.prediction=None;self.last_scored=None;self.last_action_frame=None;self.safe_since=None
+        self.fire_escape=None
         self.delivery=None;self.frame_available=asyncio.Event();self.frame_received_at=0
         self.combat_hold_frames=6;self.combat_stats=Counter();self.last_sampled_input=None
         self.cursor=0;self.condition=asyncio.Condition();self.goal_handlers={};self.floor_started=None
         self.run_started=None;self.last_error=None;self.last_model_ms=None
+        self.last_feature_ms=None;self.last_rpc_ms=None
+        self.last_server_timing={}
+        self.last_combat_feedback=None
         self.policy_lock=asyncio.Lock()
         self.last_agent_contact=time.monotonic()
         self.last_decision=None
@@ -88,14 +95,17 @@ class GameRuntime:
         result.update(autoplay=self.enabled,controller_phase=self.phase,event_cursor=self.cursor,
             execution={k:v for k,v in (self.task or {}).items() if k not in {"navigator","before"}},
             battle_backend=self.backend,last_model_ms=self.last_model_ms,last_error=self.last_error,
+            last_feature_ms=self.last_feature_ms,last_rpc_ms=self.last_rpc_ms,
             combat_timing={"observation_budget_frames":MAX_OBSERVATION_AGE_FRAMES,"hold_frames":self.combat_hold_frames,
                 "execution_timing":EXECUTION_TIMING,"counters":dict(self.combat_stats)})
         result["actions"]=self.actions() if result.get("phase")=="planning" else []
-        navigator=(self.task or {}).get("navigator")
+        navigator=self.fire_escape or (self.task or {}).get("navigator")
         if navigator and hasattr(navigator,"describe"):result["execution"]["navigation"]=navigator.describe()
-        if (self.task or {}).get("stage")=="awaiting_pickup_confirmation":
+        if not self.fire_escape and (self.task or {}).get("stage")=="awaiting_pickup_confirmation":
             result["execution"]["navigation"]={**result["execution"].get("navigation",{}),"stage":"awaiting_pickup_confirmation"}
         result["agent_display"]=self.presentation.snapshot()
+        if self.memory.frame:result['weapon_profile']=weapon_state(self.memory.frame)
+        if self.last_combat_feedback is not None:result['combat_feedback']=copy.deepcopy(self.last_combat_feedback)
         return result
 
     async def report_agent_status(self,state,summary=""):
@@ -103,8 +113,8 @@ class GameRuntime:
 
     async def publish_presentation(self):
         while True:
-            task=self.task or {};navigator=task.get("navigator")
-            stage=task.get("stage") or (navigator.describe().get("stage","") if navigator and hasattr(navigator,"describe") else "")
+            task=self.task or {};navigator=self.fire_escape or task.get("navigator")
+            stage=(navigator.describe().get("stage","") if self.fire_escape else task.get("stage")) or (navigator.describe().get("stage","") if navigator and hasattr(navigator,"describe") else "")
             display={**self.presentation.snapshot(),"controller_phase":self.phase,"autoplay":self.enabled,
                      "goal":task.get("target",{}).get("action_id",""),"navigation_stage":stage}
             try:await self.control({"command":"set_presentation","display":display})
@@ -116,7 +126,14 @@ class GameRuntime:
         if not 0<=wait_seconds<=25:raise ValueError("Startup wait must be 0..25 seconds")
         await self.connect_policy();deadline=time.monotonic()+wait_seconds
         while True:
-            reply=await self.control({"command":"get_frame","include_history":True});accepted=self.memory.update(reply)
+            request={"command":"get_frame","include_history":True}
+            if (self.policy_config or {}).get('feature_version', '').startswith('combat-semantic-v7-'):
+                request['include_semantic_history']=True
+            if (self.policy_config or {}).get('feature_version','').startswith('combat-feedback-v9-'):
+                request['include_feedback_history']=True
+            if (self.policy_config or {}).get('feature_version','').startswith('combat-tactical-v10-'):
+                request['include_tactical_history']=True
+            reply=await self.control(request);accepted=self.memory.update(reply)
             age=reply.get("status",{}).get("last_frame_age_ms")
             if accepted and reply["status"].get("connected") and age is not None and age<100:break
             if time.monotonic()>=deadline:break
@@ -140,11 +157,13 @@ class GameRuntime:
         self.enabled=True;self.phase="starting";self.floor_started=self.memory.floor_id;self.run_started=self.memory.run_id
         self.safe_since=None;self.last_action_frame=None
         self.last_scored=None;self.combat_stats.clear();self.last_sampled_input=None
+        self.last_combat_feedback=None
         await self.event("autoplay_started",backend=self.backend)
         return self.observe()
 
     async def stop(self,reason="stopped"):
         self.enabled=False;self.generation+=1;self.phase="manual"
+        self.fire_escape=None
         if self.prediction:
             self.prediction.cancel();await asyncio.gather(self.prediction,return_exceptions=True);self.prediction=None
         if self.delivery:
@@ -164,7 +183,7 @@ class GameRuntime:
         await self.event("autoplay_stopped",reason=reason)
         return self.observe()
 
-    async def execute(self,decision_id,action_id,reason="",timeout_s=120):
+    async def execute(self,decision_id,action_id,reason="",timeout_s=120,prepare_for_combat=False):
         if not self.enabled:raise ValueError("Call start_autoplay first")
         if self.task or self.phase!="planning":raise ValueError("Wait for a planning decision; another task/combat is active")
         if decision_id!=self.memory.decision_id():raise ValueError("Decision expired; observe_game again")
@@ -181,6 +200,7 @@ class GameRuntime:
         self.task={"task_id":uuid.uuid4().hex,"target":copy.deepcopy(target),"status":"running","reason":reason[:1000],
             "origin_room":frame["room"]["id"],"started":time.monotonic(),"timeout_s":timeout_s,
             "before":copy.deepcopy(frame["player"]),"navigator":None,"arrived":False,"last_key":None}
+        self.task['prepare_for_combat']=bool(prepare_for_combat)
         self.phase="navigation"
         await self.event("task_started",task_id=self.task["task_id"],target=target,reason=reason[:1000],before=self.task["before"])
         return {"task_id":self.task["task_id"],"status":"running","event_cursor":self.cursor}
@@ -199,15 +219,29 @@ class GameRuntime:
         if action.use_active:raise ValueError("Active item use is not enabled in this skill")
         started=time.perf_counter();combat=self.phase=="combat"
         identity={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"observation_frame":frame["game_frame"]}
+        latest=self.memory.frame or frame
+        send_age=latest["game_frame"]-frame["game_frame"] if latest.get("run_id")==frame["run_id"] and latest["room"]["id"]==frame["room"]["id"] else None
         task_id=(self.task or {}).get("task_id");navigation=None
         if not combat and self.task:
-            navigator=self.task.get("navigator")
+            navigator=self.fire_escape or self.task.get("navigator")
             if navigator and hasattr(navigator,"describe"):navigation=navigator.describe()
-            if self.task.get("stage")=="awaiting_pickup_confirmation":navigation={**(navigation or {}),"stage":"awaiting_pickup_confirmation"}
+            if not self.fire_escape and self.task.get("stage")=="awaiting_pickup_confirmation":navigation={**(navigation or {}),"stage":"awaiting_pickup_confirmation"}
         self.diagnostic("action_sent",**identity,action_id=action.action_id,hold_frames=action.hold_frames,controller_phase=self.phase,
-            task_id=task_id,navigation=navigation,player_position=frame["player"]["position"],player_velocity=frame["player"].get("velocity"))
+            task_id=task_id,navigation=navigation,player_position=frame["player"]["position"],player_velocity=frame["player"].get("velocity"),
+            current_frame_at_send=latest["game_frame"],observation_age_frames_at_send=send_age,
+            start_deadline_frames_remaining=MAX_OBSERVATION_AGE_FRAMES-send_age if send_age is not None else None)
         if combat:self.combat_stats["sent"]+=1
-        result=await self.control({**action.as_command(frame),"lease_id":self.lease["id"]})
+        payload={**action.as_command(frame),"lease_id":self.lease["id"],"controller_phase":'combat' if combat else 'navigation'}
+        extended=extended_profile((self.policy_config or {}).get('feature_version'))
+        if extended:
+            payload['charge_hold']=weapon_state(frame)['trigger'] in {'charge_release','charge_auto'} and action.action_id%5!=0
+            task=self.task or {};target=task.get('target',{})
+            if task.get('prepare_for_combat') and task.get('origin_room')==frame['room']['id']:
+                slot=int(target['target_id'].split('-')[-1]) if target.get('target_id','').startswith('door-') else None
+                door=next((d for d in frame['room'].get('doors',[]) if d['slot']==slot),None)
+                if door and door.get('open') and door.get('target_room_index') is not None:
+                    payload['handoff_room_id']=frame['room']['id'].rsplit(':',1)[0]+':'+str(door['target_room_index'])
+        result=await self.control(payload)
         ack=result.get("ack") or {};reason=result.get("error") or ack.get("reason")
         self.diagnostic("action_ack",**identity,request_id=ack.get("request_id"),ok=bool(result.get("ok")),reason=reason,
             ack_frame=ack.get("game_frame"),ack_ms=round((time.perf_counter()-started)*1000,3),controller_phase="combat" if combat else "navigation",task_id=task_id)
@@ -219,11 +253,24 @@ class GameRuntime:
 
     async def score(self,frame,history,generation):
         cfg=self.policy_config;started=time.perf_counter()
-        prompt,numeric,names=policy_observation(frame,history_facts=history,include_active=False,include_controls=cfg.get("control_context",True))
+        prompt,numeric,names=await asyncio.to_thread(policy_observation,frame,condition=cfg.get('deployment_condition','positive'),history_facts=history,include_active=False,include_controls=cfg.get("control_context",True),feature_profile=cfg.get('feature_version') if extended_profile(cfg.get('feature_version')) else None)
+        self.last_feature_ms=round((time.perf_counter()-started)*1000,3)
         if names!=cfg["numeric_names"]:raise ValueError("Numeric feature order mismatch")
         observation={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"game_frame":frame["game_frame"]}
+        if cfg.get('feature_version','').startswith(('combat-feedback-v9-', 'combat-tactical-v10-')):
+            facts=json.loads(prompt.split('\nCurrent feedback state:\n',1)[1])
+            self.last_combat_feedback={'observation':observation,'feedback':facts['feedback'],
+                                      'attack_routes':facts['attack_routes'],'candidate_consequences':facts['candidate_consequences']}
+            self.diagnostic('combat_feedback',**observation,feedback=facts['feedback'],attack_routes=facts['attack_routes'])
+            if 'pursuit' in facts:
+                self.last_combat_feedback.update(pursuit=facts['pursuit'], npc_phases=facts['npc_phases'])
+                self.diagnostic('combat_tactical_feedback', **observation, pursuit=facts['pursuit'], npc_phases=facts['npc_phases'])
+        else:self.last_combat_feedback=None
+        rpc_started=time.perf_counter()
         reply=await self.policy.request({"command":"predict","prompt":prompt,"numeric":numeric,"observation":observation,
             "feature_version":cfg["feature_version"],"head_architecture":cfg["head_architecture"],"rules_sha256":cfg["rules_sha256"]})
+        self.last_rpc_ms=round((time.perf_counter()-rpc_started)*1000,3)
+        self.last_server_timing={key:reply[key] for key in ("server_ms","worker_ms","pre_model_ms","post_model_ms") if key in reply}
         return prediction_action(reply,frame,cfg),frame,generation,(time.perf_counter()-started)*1000,reply["model_ms"]
 
     def discard_reason(self,source,generation,elapsed,source_age_ms):
@@ -231,7 +278,7 @@ class GameRuntime:
         if not self.enabled or generation!=self.generation or self.phase!="combat":return "session_changed"
         if status.get("control_lease")!=self.lease or not status.get("connected") or not frame or frame.get("mode")!="ai":return "control_changed"
         if source["run_id"]!=frame["run_id"] or source["room"]["id"]!=frame["room"]["id"]:return "run_room_changed"
-        if not combat_active(frame) or frame["player"].get("dead"):return "combat_ended"
+        if not self.fighting(frame) or frame["player"].get("dead"):return "combat_ended"
         if not 0<=frame["game_frame"]-source["game_frame"]<MAX_OBSERVATION_AGE_FRAMES:return "observation_frame_expired"
         if source_age_ms+elapsed>=200:return "observation_wall_expired"
         return None
@@ -252,13 +299,18 @@ class GameRuntime:
                 self.delivery.result();self.delivery=None
             source_age_ms=(reply.get("status",{}).get("last_frame_age_ms") or 0)+(time.monotonic()-self.frame_received_at)*1000
             self.last_scored=key
-            action,source,scored_generation,elapsed,model_ms=await self.score(frame,reply["policy_history"],generation)
+            semantic = self.policy_config.get('feature_version', '').startswith('combat-semantic-v7-')
+            feedback=self.policy_config.get('feature_version','').startswith('combat-feedback-v9-')
+            tactical=self.policy_config.get('feature_version','').startswith('combat-tactical-v10-')
+            history = reply['tactical_history'] if tactical else reply['feedback_history'] if feedback else reply['semantic_history'] if semantic else reply['policy_history']
+            action,source,scored_generation,elapsed,model_ms=await self.score(frame,history,generation)
             self.last_model_ms=model_ms;self.combat_stats["predictions"]+=1
             reason=self.discard_reason(source,scored_generation,elapsed,source_age_ms)
             if not reason and self.delivery and not self.delivery.done():reason="ack_pending"
             self.diagnostic("inference_completed",run_id=source["run_id"],room_id=source["room"]["id"],
                 observation_frame=source["game_frame"],current_frame=self.memory.frame["game_frame"],
-                action_id=action.action_id,model_ms=model_ms,response_ms=round(elapsed,3),source_age_ms=round(source_age_ms,3),discard_reason=reason)
+                action_id=action.action_id,model_ms=model_ms,response_ms=round(elapsed,3),source_age_ms=round(source_age_ms,3),discard_reason=reason,
+                feature_ms=self.last_feature_ms,rpc_ms=self.last_rpc_ms,**self.last_server_timing)
             if reason:
                 self.combat_stats["discarded_"+reason]+=1
             else:
@@ -280,7 +332,7 @@ class GameRuntime:
 
     async def halt_navigation(self):
         task=self.task;frame=self.memory.frame
-        if task and not task.get("input_stopped") and self.enabled and self.lease and frame and frame.get("mode")=="ai" and not combat_active(frame):
+        if task and not task.get("input_stopped") and self.enabled and self.lease and frame and frame.get("mode")=="ai" and not self.fighting(frame):
             await self.send(Action(0,False,1),frame)
             task["input_stopped"]=True
 
@@ -341,6 +393,19 @@ class GameRuntime:
         task["last_key"]=key
         try:
             action=task["navigator"].step(frame)
+            if action and task.get('prepare_for_combat') and kind=='enter_door' and task['origin_room']==frame['room']['id']:
+                slot=int(target['target_id'].split('-')[-1]);door=next((d for d in frame['room']['doors'] if d['slot']==slot),None)
+                w=weapon_state(frame)
+                if w['precharge_allowed'] and door and door.get('open') and extended_profile((self.policy_config or {}).get('feature_version')):
+                    direction=DOOR_DIRECTIONS[slot];shot=SHOTS.index(direction)
+                    pos=frame['player']['position'];dp=door['position'];distance=((pos['x']-dp['x'])**2+(pos['y']-dp['y'])**2)**.5
+                    if distance<100 and w['charge_ratio']<.9:
+                        task.setdefault('precharge_started',time.monotonic())
+                        if time.monotonic()-task['precharge_started']<3:
+                            task['stage']='precharging';action=Action(shot,False,6)
+                        else:task['stage']='precharge_timeout'
+                    else:task['stage']='charge_handoff'
+                    action=Action((action.action_id//5)*5+shot,False,action.hold_frames)
             if hasattr(task["navigator"],"describe"):
                 navigation=task["navigator"].describe()
                 if navigation["revision"]!=task.get("navigation_revision"):
@@ -356,7 +421,14 @@ class GameRuntime:
             await self.finish_task("blocked",str(exc))
 
     async def tick(self):
-        reply=await self.control({"command":"get_frame","include_history":True})
+        request={"command":"get_frame","include_history":True}
+        if (self.policy_config or {}).get('feature_version', '').startswith('combat-semantic-v7-'):
+            request['include_semantic_history']=True
+        if (self.policy_config or {}).get('feature_version','').startswith('combat-feedback-v9-'):
+            request['include_feedback_history']=True
+        if (self.policy_config or {}).get('feature_version','').startswith('combat-tactical-v10-'):
+            request['include_tactical_history']=True
+        reply=await self.control(request)
         if self.enabled and self.lease and reply.get("status",{}).get("control_epoch",self.lease["epoch"])<self.lease["epoch"]:return
         accepted=self.memory.update(reply)
         if accepted:
@@ -366,6 +438,8 @@ class GameRuntime:
         if time.monotonic()-self.last_agent_contact>120:
             await self.stop("agent_inactive_timeout");return
         status=reply["status"];frame=reply.get("frame")
+        if frame and frame["player"].get("dead"):
+            await self.stop("player_dead");return
         if not status.get("connected") or status.get("control_lease")!=self.lease:
             await self.stop("human_takeover_or_disconnected");return
         if not frame or status.get("last_frame_age_ms",10000)>200:return
@@ -375,7 +449,7 @@ class GameRuntime:
         if frame["player"].get("dead"):await self.stop("player_dead");return
         if self.memory.floor_id!=self.floor_started or self.memory.run_id!=self.run_started:
             await self.stop("floor_or_run_changed");return
-        fighting=combat_active(frame)
+        fighting=self.fighting(frame)
         if fighting and self.task and time.monotonic()-self.task["started"]>self.task["timeout_s"]:
             await self.stop("combat_task_timeout");return
         if fighting:
@@ -383,6 +457,9 @@ class GameRuntime:
             if self.phase!="combat":
                 self.phase="combat";self.generation+=1
                 await self.event("combat_started",room_id=frame["room"]["id"])
+                if self.task and self.task.get('stage') in {'precharging','charge_handoff'} and weapon_state(frame)['holding']:
+                    direction=weapon_state(frame).get('shoot_direction') or {};vector=(direction.get('x',0),direction.get('y',0))
+                    if vector in SHOTS:await self.send(Action(SHOTS.index(vector),False,6),frame)
             applied=frame.get("applied_controls") or {}
             sample=(applied.get("run_id"),applied.get("room_id"),applied.get("game_frame"))
             if sample[0]==frame["run_id"] and sample[1]==frame["room"]["id"] and sample!=self.last_sampled_input:
@@ -394,6 +471,7 @@ class GameRuntime:
             self.prediction.cancel();await asyncio.gather(self.prediction,return_exceptions=True);self.prediction=None;self.generation+=1
         if self.delivery:
             self.delivery.cancel();await asyncio.gather(self.delivery,return_exceptions=True);self.delivery=None
+        if await self.avoid_fire(frame):return
         if self.safe_since is None:self.safe_since=(frame["room"]["id"],frame["game_frame"])
         if self.safe_since[0]!=frame["room"]["id"]:self.safe_since=(frame["room"]["id"],frame["game_frame"])
         if frame["game_frame"]-self.safe_since[1]<6:return
@@ -419,3 +497,35 @@ class GameRuntime:
             display_task.cancel();await asyncio.gather(display_task,return_exceptions=True)
             if self.enabled:await self.stop("service_stopped")
             if self.policy:await self.policy.close()
+
+    def fighting(self,frame):
+        return combat_active(frame,extended_profile((self.policy_config or {}).get('feature_version')))
+
+    async def avoid_fire(self,frame):
+        # tick calls this only with a live AI lease and no active combat. Static
+        # fires belong to local navigation, including gaps between high-level tasks.
+        pos=frame["player"]["position"];point=(pos["x"],pos["y"])
+        touching=[o for o in fire_obstacles(frame) if o.gap(point)<=0]
+        if not touching:
+            if self.fire_escape:
+                await self.send(Action(0,False,1),frame)
+                self.fire_escape=None;self.safe_since=None
+                if self.task:
+                    self.task["navigator"]=None;self.task.pop("input_stopped",None)
+                await self.event("navigation_hazard_escaped",hazard="fire")
+            return False
+        if not self.fire_escape or self.fire_escape.room_id!=frame["room"]["id"]:
+            await self.send(Action(0,False,1),frame)
+            self.fire_escape=Navigator(frame,{})
+            await self.event("navigation_hazard_detected",hazard="fire",position=pos)
+        self.safe_since=None;self.phase="navigation"
+        try:
+            action=self.fire_escape.escape_fire(frame)
+        except NavigationBlocked as exc:
+            await self.event("navigation_hazard_blocked",hazard="fire",reason=str(exc),reason_code=exc.reason_code)
+            await self.stop("navigation_hazard_escape_blocked")
+            return True
+        if action:
+            result=await self.send(action,frame)
+            self.fire_escape.command_feedback(frame,action,result or {})
+        return True

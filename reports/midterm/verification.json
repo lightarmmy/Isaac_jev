@@ -1,0 +1,173 @@
+{
+  "main_slides": 8,
+  "appendices": 2,
+  "target_seconds": 300,
+  "demo_slide": 5,
+  "thanks_slide": 8,
+  "head_parameter_source": "actual V010 safetensors tensor shapes",
+  "outputs": [
+    {
+      "filename": "midterm.zh-CN.html",
+      "bytes": 246856217,
+      "language": "zh",
+      "slide_ids": [
+        "cover",
+        "architecture",
+        "jev-input",
+        "jev-architecture",
+        "demo",
+        "dsh-skill",
+        "improvements",
+        "thanks",
+        "head-parameters",
+        "full-results"
+      ],
+      "head_parameters": {
+        "total": 1002753,
+        "move_total": 465417,
+        "shoot_total": 464389,
+        "text_per_tower": 266624,
+        "numeric_per_tower": 130688,
+        "fusion_per_tower": 65792,
+        "move_output": 2313,
+        "shoot_output": 1285,
+        "auxiliary": 72947,
+        "numeric_size": 1018,
+        "embedding_size": 2048
+      },
+      "sha256": "85e2f11ef13089e3837db61734b91d29a1a4d47317547b4faf5ca23bc3d6b996",
+      "embedded_video": {
+        "filename": "202611261335.mp4",
+        "mime": "video/mp4",
+        "bytes": 185085480,
+        "sha256": "30aee7271077b6ef3d2648ab1ed999b55a90324c5b17fb1b1eadd7f7b1c84893"
+      }
+    },
+    {
+      "filename": "midterm.en.html",
+      "bytes": 246857265,
+      "language": "en",
+      "slide_ids": [
+        "cover",
+        "architecture",
+        "jev-input",
+        "jev-architecture",
+        "demo",
+        "dsh-skill",
+        "improvements",
+        "thanks",
+        "head-parameters",
+        "full-results"
+      ],
+      "head_parameters": {
+        "total": 1002753,
+        "move_total": 465417,
+        "shoot_total": 464389,
+        "text_per_tower": 266624,
+        "numeric_per_tower": 130688,
+        "fusion_per_tower": 65792,
+        "move_output": 2313,
+        "shoot_output": 1285,
+        "auxiliary": 72947,
+        "numeric_size": 1018,
+        "embedding_size": 2048
+      },
+      "sha256": "2a6cd64696789761b4c98bc7f772f40c869fbd10d6d13933d32b300a7b77579a",
+      "embedded_video": {
+        "filename": "202611261335.mp4",
+        "mime": "video/mp4",
+        "bytes": 185085480,
+        "sha256": "30aee7271077b6ef3d2648ab1ed999b55a90324c5b17fb1b1eadd7f7b1c84893"
+      }
+    }
+  ],
+  "script": {
+    "structure": {
+      "slides": 8,
+      "pairs": 15,
+      "paired": true,
+      "words": 528,
+      "bodyOverflow": false
+    },
+    "formats": [
+      {
+        "name": "bilingual",
+        "display": {
+          "en": "block",
+          "zh": "block",
+          "overflow": false
+        },
+        "pages": 4
+      },
+      {
+        "name": "english",
+        "display": {
+          "en": "block",
+          "zh": "none",
+          "overflow": false
+        },
+        "pages": 3
+      },
+      {
+        "name": "chinese",
+        "display": {
+          "en": "none",
+          "zh": "block",
+          "overflow": false
+        },
+        "pages": 3
+      }
+    ]
+  },
+  "presentation_browser_checks_passed": true,
+  "shared_layout_preserved": true,
+  "source_reference": "TerraBlind fixed dev/agent commit",
+  "custom_model_statement": "Qwen backbone frozen; action heads trained by this project; no native TypeSafe Jev",
+  "private_visual_check_dir": "D:\\my_project_for_D\\qwen_jev_for_cardgame\\.local\\midterm-qa-20261126\\media",
+  "standalone_video_checks": {
+    "video_matches_original": true,
+    "video_duration_seconds": 153.466667,
+    "video_codec": "H.264",
+    "audio_codec": "AAC",
+    "files": [
+      {
+        "file": "midterm.zh-CN.html",
+        "html_bytes": 246856373,
+        "video_bytes": 185085480,
+        "video_sha256": "30aee7271077b6ef3d2648ab1ed999b55a90324c5b17fb1b1eadd7f7b1c84893"
+      },
+      {
+        "file": "midterm.en.html",
+        "html_bytes": 246857429,
+        "video_bytes": 185085480,
+        "video_sha256": "30aee7271077b6ef3d2648ab1ed999b55a90324c5b17fb1b1eadd7f7b1c84893"
+      }
+    ]
+  },
+  "native_playback": {
+    "meta": {
+      "width": 1920,
+      "height": 1080,
+      "duration": 153.466667
+    },
+    "playback": {
+      "time": 0.61981,
+      "paused": false,
+      "error": null
+    },
+    "seeks": [
+      {
+        "time": 60,
+        "ready": 4,
+        "error": null
+      },
+      {
+        "time": 152,
+        "ready": 4,
+        "error": null
+      }
+    ],
+    "standaloneLocation": "D:\\my_project_for_D\\qwen_jev_for_cardgame\\.local\\midterm-qa-20261126\\media\\portable",
+    "noVideoAttachments": true
+  }
+}

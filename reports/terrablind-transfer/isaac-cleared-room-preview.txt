@@ -1,0 +1,29 @@
+Survive while making useful progress against enemies. Compare immediate danger, escape room and useful attack access together. When attack access is poor, compare repositioning opportunities; approaching an enemy is useful only when it improves attack access without entering contact danger. Holding a safe effective firing position or waiting for a required charge can be reasonable. Interpret geometric obstructions using the current attack capabilities. Unknown mechanisms stay unknown. Movement and shooting may occur together. Estimates are not confirmed future hits.
+
+Units: px; dx right+, dy down+; logic 30Hz. Threat horizon 6 frames.
+Player: health={'bone': 0, 'red': 6, 'rotten': 0, 'max_red': 6, 'black_mask': 0, 'soul': 0}; can_fly=no; velocity=(0,0); damage=3.5; move_speed=1.
+Weapon: tears; trigger=continuous (inferred); charge=unknown; holding=no; raw tear_range=260 (not a universal weapon range).
+Attack penetration/last attack failure reason: unknown.
+Threats (observed motion; conservative circles, not confirmed damage):
+3:1179041483 live_fireplace_contact_hazard: dx=-120.0,dy=0.0; closing=no; minimum gap=97.0px; no circle contact within 6 frames.
+1:3813399741 live_fireplace_contact_hazard: dx=-360.0,dy=0.0; closing=no; minimum gap=337.0px; no circle contact within 6 frames.
+Attack geometry (not guaranteed hits; interpret terrain using capabilities; native geometry known=yes):
+3:1179041483: vulnerable=no; left forward=120.0,lateral=0.0; intervening grid=none observed.
+1:3813399741: vulnerable=no; left forward=360.0,lateral=0.0; intervening grid=none observed.
+Movement facts: option | static clearance<=80px | legacy threat gap | area hazard | fire.
+stay | unknown | 97.0 | no | no
+up | 80.0 | 97.0 | no | no
+down | 80.0 | 97.0 | no | no
+left | 80.0 | 73.0 | no | no
+right | 10.0 | 97.0 | no | no
+up_left | 80.0 | 81.4 | no | no
+up_right | 14.0 | 97.0 | no | no
+down_left | 80.0 | 81.4 | no | no
+down_right | 14.0 | 97.0 | no | no
+Legacy move estimates assume instant turn at 4*move_speed for 6 frames; hazard queries use 40px. Inertia/delay not simulated.
+Area hazards omitted=0; unclassified effects=1.
+History (observations only):
+age=3 frames: unavailable.
+age=9 frames: unavailable.
+age=18 frames: unavailable.
+Unverified: attack-position paths, movement-dependent hit opportunities, damage attribution. All 9 moves remain options.

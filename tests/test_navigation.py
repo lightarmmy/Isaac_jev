@@ -3,7 +3,7 @@ import math
 import unittest
 from isaac_jev.actions import MOVES
 from isaac_jev.mock import sample_frame
-from isaac_jev.navigation import Navigator, NavigationBlocked
+from isaac_jev.navigation import Navigator, NavigationBlocked, fire_obstacles
 from isaac_jev.terrain import Obstacle, terrain_context
 
 
@@ -44,6 +44,70 @@ def drive(f,limit=400,delay=2,dispatch_every=1,finish_distance=None):
 
 
 class NavigationTests(unittest.TestCase):
+    def test_live_npc_fire_detours_clear_room_pickup_route(self):
+        for variant in (0,1,2,3,4):
+            with self.subTest(variant=variant):
+                f=room_frame(pos=(560,280))
+                f['entities']=[
+                    {'uid':'fire','type':33,'variant':variant,'kind':'enemy','active_enemy':False,
+                     'vulnerable':False,'collision_class':4,'hp':5,'size':13,'position':{'x':440,'y':280}},
+                    {'uid':'item','kind':'pickup','variant':100,'subtype':76,'size':12,'position':{'x':320,'y':280}},
+                ]
+                nav=Navigator(f,{'kind':'collect_treasure_item','target_id':'item'})
+                route,obstacles=nav.path(f,(320,280))
+                self.assertGreater(len(route),2)
+                fire=next(o for o in obstacles if o.kind=='fire')
+                self.assertTrue(fire.blocks((560,280),(320,280)))
+                self.assertTrue(all(nav.segment_clear(f,a,b,obstacles) for a,b in zip(route,route[1:])))
+                self.assertTrue(all(fire.gap(p)>0 for p in route))
+
+    def test_extinguished_fires_and_visual_effects_do_not_block_pickup(self):
+        for changes in ({'dead':True},{'hp':0},{'collision_class':0},{'collision_class':3},{'type':1000,'variant':66}):
+            with self.subTest(changes=changes):
+                f=room_frame(pos=(560,280))
+                f['entities']=[{'type':33,'kind':'enemy','hp':5,'collision_class':4,
+                                'size':13,'position':{'x':440,'y':280},**changes}]
+                nav=Navigator(f,{})
+                self.assertEqual(nav.path(f,(320,280))[0],[(560.,280.),(320,280)])
+
+    def test_flying_still_avoids_scaled_fire_collision(self):
+        f=room_frame();f['player']['can_fly']=True
+        f['entities']=[{'type':33,'size':13,'size_multi':{'x':2,'y':1},'position':{'x':440,'y':280}}]
+        obstacle=fire_obstacles(f)[0]
+        self.assertGreaterEqual(obstacle.extent[0],26+f['player']['size'])
+
+    def test_appearing_fire_replans_cached_route(self):
+        f=room_frame(pos=(120,280));nav=Navigator(f,{'kind':'enter_door','target_id':'door-2'})
+        nav.step(f);revision=nav.revision
+        f['game_frame']+=1;f['entities']=[{'type':33,'size':13,'position':{'x':320,'y':280}}]
+        nav.step(f)
+        self.assertGreater(nav.revision,revision);self.assertGreater(len(nav.route),2)
+
+    def test_contact_escapes_before_unreachable_or_consumed_target(self):
+        f=room_frame(pos=(459.7,280));f['entities']=[
+            {'type':33,'kind':'enemy','size':13,'position':{'x':440,'y':280}}]
+        nav=Navigator(f,{'kind':'collect_treasure_item','target_id':'missing'})
+        nav.stuck=121
+        action=nav.step(f);move=MOVES[action.action_id//5]
+        self.assertEqual(nav.stage,'escape_fire');self.assertGreater(move[0],0)
+        self.assertGreater(fire_obstacles(f)[0].gap(nav.motion(f,move,1)[-1]),fire_obstacles(f)[0].gap((459.7,280)))
+
+    def test_inward_momentum_does_not_force_waiting_in_fire(self):
+        f=room_frame(pos=(459.7,280));f['player']['velocity']={'x':-4.5,'y':0}
+        f['entities']=[{'type':33,'size':13,'position':{'x':440,'y':280}}]
+        nav=Navigator(f,{})
+        action=nav.escape_fire(f)
+        self.assertIsNotNone(action);self.assertNotEqual(action.action_id,0)
+        self.assertGreater(MOVES[action.action_id//5][0],0)
+
+    def test_escape_never_crosses_another_fire_or_room_wall(self):
+        f=room_frame(pos=(550,280));f['entities']=[{'type':33,'size':13,'position':{'x':545,'y':280}}]
+        nav=Navigator(f,{})
+        action=nav.escape_fire(f)
+        points=nav.motion(f,MOVES[action.action_id//5],action.hold_frames)
+        self.assertTrue(all(nav.room_contains(f,p) for p in points))
+        self.assertGreater(fire_obstacles(f)[0].gap(points[-1]),fire_obstacles(f)[0].gap((550,280)))
+
     def test_open_door_tunnels_cross_before_regular_path_planning(self):
         for slot,pos in ((1,(321.46,147.25)),(3,(320,424.85)),(0,(54,280)),(2,(588,280))):
             with self.subTest(slot=slot):

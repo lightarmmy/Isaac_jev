@@ -35,6 +35,11 @@ class ForwardServer(socketserver.ThreadingTCPServer):
     daemon_threads=True
     block_on_close=False
 
+    def get_request(self):
+        connection,address=super().get_request()
+        connection.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+        return connection,address
+
 
 class ServerLink:
     def __init__(self,root,local_port=19528):
@@ -76,7 +81,9 @@ class ServerLink:
             client.connect(host,port=port,username=username,password=password,look_for_keys=False,allow_agent=False,
                            timeout=10,banner_timeout=10,auth_timeout=10)
             client.save_host_keys(str(known))
-            transport=client.get_transport();transport.set_keepalive(15)
+            transport=client.get_transport()
+            transport.sock.setsockopt(socket.IPPROTO_TCP,socket.TCP_NODELAY,1)
+            transport.set_keepalive(15)
             # No user-controlled shell interpolation. The existing idempotent
             # launcher leaves the model running after this connection closes.
             _,out,_=client.exec_command("cd /xufanghui/isaac-jev && .venv/bin/python scripts/start_policy_service.py",timeout=20)
@@ -133,7 +140,7 @@ class ServerLink:
             if generation!=self.generation:
                 await asyncio.to_thread(self._close,client,forwarder);return
             self.client,self.forwarder=client,forwarder;client=forwarder=None
-            self.state.update(state="warming_up",source="managed_tunnel")
+            self.state.update(state="warming_up",source="managed_tunnel",ssh_tcp_nodelay=True,local_tcp_nodelay=True)
             for _ in range(90):
                 if generation!=self.generation:return
                 ready=await self.probe()

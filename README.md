@@ -1,100 +1,183 @@
 # Isaac Jev
 
-非视觉以撒游戏桥、个人示范采集和冻结 Qwen3.5-2B 的战斗决策头。
+[English](README.md) | [简体中文](README.zh-CN.md)
 
-高层路线/道具决策由 dsh 的 `isaac-play` 技能通过本地游戏工具执行，战斗交给 L40S 上的 Qwen-jev。首期支持连续走房间、拾取普通掉落、拿宝箱房道具和查看商店；技能安装与使用见 [DSH_SKILL.md](docs/DSH_SKILL.md)。
+A hierarchical agent for **The Binding of Isaac**, driven by native game telemetry. **dsh + the `isaac-play` skill** handles exploration, items, and resource management. Local scripts provide navigation and higher-level facts. A **frozen Qwen3.5-2B backbone with independently trained action heads** handles real-time combat.
 
-当前训练版 v004 使用最近 8 个弹幕、0.1/0.3/0.6 秒物理历史、文本/数值两路融合及独立移动/射击输出。显式旧按键标签移除，动作目标对齐观测后 4 个逻辑帧；主动输出禁用。训练使用 positive/negative/unknown，部署固定 positive。详见 [v004 训练与验证](docs/TRAINING_V004.md)。
+Our text construction draws on [TerraBlind](docs/terrablind_review.md). This project trains its own Jev-style policy; it does **not** use TypeSafe's native Jev service.
 
-当前状态：**非视觉采集、L40S v004 训练/部署及 dsh 技能工具已完成**。v004 使用 8047/728/297 条训练/验证/测试样本；第 19 轮早停，采用第 11 轮。固定 positive 下验证移动/射击一致率约 27%/83%，经 SSH 总响应约 55–80 ms，权重留在服务器。用户实测已连续探索、查看商店、清理 Boss 并正常结束本层 Demo；保留特殊未访问房间。isaac-play 提供 16 个基础 CLI/MCP 工具，145 项回归测试通过。0.5.0 模组新增游戏控制台 SSH 连接/录制开关和 dsh 活动 HUD，见 [游戏内操作](docs/GAME_CONSOLE.md)。战斗顶障碍问题留待下一轮地形特征与示范训练。采集继续使用 REPENTOGON 的独立离线实验环境。见 [技能使用](docs/DSH_SKILL.md)、[导航与地形输入](docs/NAVIGATION_TERRAIN.md)、[接入指南](docs/CONNECT_ISAAC.md)与[批量采集指南](docs/COLLECT_DEMONSTRATIONS.md)。
+As of **November 26, 2026**, the configured deployment uses **V009, epoch 1**. **V010** has completed 30 training epochs, with every action head retained, but has not replaced the deployed model. The bridge mod is **0.7.0 / `combat_schema=3`**. Exploration, combat, and pickups across a floor have been demonstrated; completing a full game remains the goal.
 
-2026-11-24：0.4.2 模组和技能已修复动作保持/观测期限耦合、推理等待回执和状态发送的额外一帧延迟。游戏与后台均已更新；迟到动作实机完整保持 6 帧。真实 L40S 配合模拟游戏的发送间隔约 59 ms，详见 [控制时序复盘与修复](docs/CONTROL_TIMING_FIX.md)。
+## Project layout and requirements
 
-## 已实现
+| Component | Location | Runs on |
+| --- | --- | --- |
+| Game bridge, navigation, text features, policy client, and tool service | `src/isaac_jev/` | Windows game computer |
+| Lua mod and installation, connection, and recording scripts | `mods/isaac_jev_bridge/`, root `.cmd` files, `scripts/` | Windows game computer |
+| High-level skill, tool entry point, and instructions | `skills/isaac-play/` | Local dsh installation |
+| Dataset processing, action-head training, and GPU policy server | `scripts/`, `src/isaac_jev/` | Linux GPU node |
+| Trained heads, processed datasets, and original recordings | `artifacts/`, `datasets/`, `recordings/` | Supplied separately; copied where needed |
 
-- 自写 Lua mod：REPENTOGON `MC_PRE_UPDATE` 更新前采集、原始实体/地形/属性/道具/人工输入、TCP 双向通信。
-- 本地 Python TCP hub：状态检查、gzip JSONL 录制、丢帧计数、命令回执。
-- 默认手动控制，影子模式和 AI 模式分离，F8 返回人工控制，命令有房间与时限。
-- 45 类移动/射击动作，独立主动道具二分类触发；主动使用可以与移动射击同时发生。
-- 原始录制到示范数据的转换、按整局划分、冻结 Qwen 文本主干特征、MLP 训练与版本包导出。
-- 本地影子推理/控制入口与人工接管。
-- 只写项目实验副本的 mod 安装脚本。
+The local and cloud components come from the same source tree. All **104 files** in the downloaded V010 training-source manifest matched the local snapshot when checked. Older cloud workspaces, including the deployed V009 version, may differ. Use matching source and checkpoint versions on both sides; adapt filesystem paths and CUDA settings to your machines.
 
-实际游戏连接、训练和 GPU 推理需要在对应环境验证；mock 客户端不会被当作实机结果。
+You need more than the source code, the game, and REPENTOGON:
 
-## 无需模型依赖的桥接命令
+- **Windows and Python 3.11**, plus a legitimate game installation and the DLC required by REPENTOGON. This project was tested with **Repentance+**.
+- A **Linux NVIDIA GPU node** with working CUDA and SSH access. Our deployment uses an **L40S**. The Windows client needs neither Torch nor local Qwen weights when using the remote server.
+- The **`Qwen/Qwen3.5-2B` backbone** and a matching complete action-head package: `head.safetensors`, `policy_config.json`, `normalization.json`, `action_map.json`, `manifest.json`, and any other files listed in that manifest.
+- **dsh with a configured high-level LLM** for exploration and resource management. Combat-only testing can use the standalone client.
+- **Processed datasets** for retraining, and finalized human recordings if you want to rebuild inputs and annotations.
 
-在项目目录打开 PowerShell：
+**Weights and datasets are not included in Git.** Obtain the matching packages from the project author, or collect demonstrations and train your own policy. Virtual environments, caches, local deployment state, recordings, temporary probes, and large embedded-video presentations are also excluded. Presentation sources and speaker scripts are included.
 
-```powershell
-py -3.11 -X utf8 run.py doctor
-py -3.11 -X utf8 run.py bridge --record recordings
-```
+## 1. Windows: install the game bridge and mod
 
-另一个终端：
-
-```powershell
-py -3.11 -X utf8 run.py status
-py -3.11 -X utf8 run.py frame
-py -3.11 -X utf8 run.py mode manual
-```
-
-mock 仅用于离线链路测试：
+Clone the repository, then run the following commands from its root:
 
 ```powershell
-py -3.11 -X utf8 run.py mock-client --frames 90
+git clone https://github.com/lightarmmy/Isaac_jev.git
+cd Isaac_jev
+py -3.11 -m venv .venv
+.venv\Scripts\python.exe -m pip install -e ".[link]"
 ```
 
-## 采集与 L40S 训练
-
-批量采集双击项目根目录的 `Start_Recording.cmd` 即可，之后新局和重开实验游戏自动录制、封存、重连；新版模组的 REC 标记显示写入状态。结束采集或关机前双击 `Stop_Recording.cmd`。重启电脑后需要再次启动采集程序。以下命令仍可用于手动操作。
+1. Download the Launcher from the [official REPENTOGON installation page](https://repentogon.com/install.html) or the [official Launcher repository](https://github.com/TeamREPENTOGON/Launcher). Select a clean, supported game executable and complete its compatibility checks and installation. Follow the official supported-version guidance; this project's historical offline patch script is not a general installer.
+2. We recommend a project-local game copy. The command below copies your clean game to `.local/isaac-lab/game`; select that copy's `isaac-ng.exe` in the Launcher.
+3. Copy `mods/isaac_jev_bridge/` into `mods/isaac_jev_bridge/` under the **game directory actually launched by REPENTOGON**, then enable **Isaac Jev Bridge** in the mod manager. The supplied installer only writes under `.local/isaac-lab/`.
+4. Enable **Lua debug / `--luadebug`** in the Launcher; TCP sockets require it. For in-game `jev_*` commands, set `EnableDebugConsole=1` in the active save directory's `options.ini`. After a mod update, restart the game or run `luamod isaac_jev_bridge` in its console.
 
 ```powershell
-# Start a clean personal demonstration session; finish the preceding tests as diagnostic.
-py -3.11 -X utf8 run.py record rotate --purpose demonstration --completed-purpose diagnostic
-# Play manually, then close the recording normally.
-py -3.11 -X utf8 run.py record stop
-py -3.11 -X utf8 run.py inspect recordings
-py -3.11 -X utf8 run.py prepare-dataset recordings --output datasets/combat-v1
+.\scripts\prepare_lab.ps1 -SourceGame 'YOUR STEAM GAME DIRECTORY'
+# After REPENTOGON installation, use the actual launch directory if it created a subdirectory
+.\scripts\install_bridge.ps1 -LabGame '.local\isaac-lab\game'
+.\Setup_Game_Link.cmd
+.venv\Scripts\python.exe -X utf8 run.py status
+.venv\Scripts\python.exe -X utf8 run.py frame
 ```
 
-转换排除 diagnostic 会话，观测帧 N 对齐人工操作帧 N+1；主动正标签同时要求按下边沿和真实使用事件。完整录制后再准备数据集，不能把空房按键测试当作战斗示范。
+`Setup_Game_Link.cmd` starts the local bridge, not the game. After subsequent computer restarts, use `Start_Game_Link.cmd`. The mod connects automatically to **127.0.0.1:9527**. Check for `connected=true`, `capture_phase=pre_update`, advancing game frames, and `mode=manual`. Keep the game in the foreground and unpaused.
 
-在集群 Linux / L40S 环境中：
+**Copying game files does not isolate saves.** To protect existing progress, use a separate Windows account or a verified sandbox and Steam Cloud isolation setup. [Game connection and save isolation](docs/CONNECT_ISAAC.md) documents our experimental setup; its historical machine paths and versions need adaptation.
+
+## 2. Cluster: deploy the GPU policy server
+
+Allocate a GPU container or node that supports SSH forwarding and can remain running. Execute the commands below **on that allocated GPU node**. Store code, models, and logs on persistent storage: a detached process still ends when its cluster job or container is reclaimed.
+
+Upload matching `src/`, `scripts/`, `configs/`, `run.py`, and `pyproject.toml` to a directory such as `/workspace/isaac-jev`. Preserve relative paths when uploading the complete `artifacts/combat-v009-feedback/` package. Use SFTP or `scp -P SSH_PORT`; the server does not need game files.
 
 ```bash
+cd /workspace/isaac-jev
 python3.11 -m venv .venv
 source .venv/bin/activate
-# Install a CUDA-compatible Torch build for the cluster before the training extras when needed.
-pip install -e '.[train]'
-python run.py train datasets/combat-v1 --output artifacts/combat-v001 --model Qwen/Qwen3.5-2B
+# First install a CUDA-enabled Torch build compatible with the node's driver
+python -m pip install -e '.[train]'
+python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+# Acceleration dependencies tested on L40S; verify compatibility on other hardware
+python -m pip install flash-linear-attention==0.4.0 fla-core==0.4.0 einops==0.8.1
 ```
 
-至少需要独立训练与验证整局。示范数据中的模型自身输出不作为人工正确标签。主动道具没有正样本时该输出默认不启用。
+Our tested environment uses **Torch 2.6.0+cu124**, **Transformers 5.3.x**, and **BF16**. `scripts/setup_l40s.sh` validates an L40S environment and rejects other GPU models. Timing will depend on hardware and environment.
 
-当前使用 L40S 常驻推理，本地只连接游戏。先双击 `Start_Server_Tunnel.cmd`，在 SSH 窗口输入服务器密码并保持窗口打开，再双击 `Start_Remote_Shadow.cmd`。shadow 仅评估战斗动作，角色仍由人控制；无需本地 Qwen、checkpoint 或 Torch。详细部署、接管命令和测速见 [L40S 远程推理](docs/REMOTE_INFERENCE.md)。
+**Download the backbone before starting the service.** The server loads offline from the project's `.cache/huggingface/hub`. Download the exact revision specified by the action-head configuration:
 
-保留本地推理入口供开发使用，需要与训练兼容的 CUDA 环境：
+```bash
+python - <<'PY'
+import json
+from huggingface_hub import snapshot_download
+cfg = json.load(open('artifacts/combat-v009-feedback/combat-v009-feedback-s01/policy_config.json'))
+snapshot_download(cfg['model'], revision=cfg['revision'], cache_dir='.cache/huggingface/hub')
+PY
+```
+
+For offline nodes, download on another machine and transfer the complete Hugging Face cache. If `.local/offline-hf/` exists, the server prefers that directory; check that it contains the intended revision.
+
+Adapt `configs/remote_policy.json` to your paths:
+
+```json
+{
+  "checkpoint": "artifacts/combat-v009-feedback/combat-v009-feedback-s01",
+  "warmup_dataset": "datasets/combat-v009-feedback",
+  "cpu_threads": 1,
+  "pad_multiple": 512
+}
+```
+
+The matching warmup dataset is optional: if absent, the server still performs fixed-length warmup. Start the service and wait for readiness; initial loading and kernel compilation can take time.
+
+```bash
+.venv/bin/python scripts/start_policy_service.py
+tail -f .local/policy-service.log
+# In another SSH terminal; this file is written after warmup
+cat .local/policy-service-ready.json
+```
+
+The service listens only on **127.0.0.1:19528**. Logs and PID files live under `.local/policy-service*`; closing SSH does not unload the model. The launcher reuses an existing process rather than changing its checkpoint. To switch models, stop autoplay, run `.venv/bin/python scripts/benchmark_rpc.py --network-only --shutdown`, wait for the old process to exit, update the configuration, and start again. Keep source, text rules, numerical feature order, backbone revision, and the complete checkpoint package matched.
+
+## 3. Connect locally and play
+
+Once the server is ready, open a Windows terminal and establish the tunnel. Replace `SSH_PORT`, `USER`, and `HOST`, and keep the terminal open:
 
 ```powershell
-python run.py infer artifacts/combat-v001 --mode shadow
+ssh -N -p SSH_PORT -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 127.0.0.1:19528:127.0.0.1:19528 USER@HOST
 ```
 
-## 文档
+`Start_Server_Tunnel.cmd` and the automatic launcher behind in-game `jev_connect` contain the original deployment's address or remote directory. Use the generic tunnel above for a new deployment, or adapt the `.cmd` file and the remote launch path in `src/isaac_jev/server_link.py`. `jev_connect` reuses an existing healthy tunnel. With the automatic path configured and no external tunnel, enter `jev_connect IP:SSH_PORT` in the game console and supply the password in the local dialog; the default SSH username is `root`.
 
-- [当前接入步骤和原游戏保护](docs/CONNECT_ISAAC.md)
-- [原始数据与模型输入契约](docs/DATA_CONTRACT.md)
-- [v004 训练、动作复制修正与验证](docs/TRAINING_V004.md)
-- [dsh 的 isaac-play 技能与工具使用](docs/DSH_SKILL.md)
-- [完整层级架构](docs/isaac_hierarchical_pipeline.md)
-- [以撒战斗设计](docs/isaac_jev_design.md)
-- [TerraBlind 源码核对](docs/terrablind_review.md)
-
-## 测试
+Install the high-level skill and check all connections:
 
 ```powershell
-$env:PYTHONPATH = 'src'
-py -3.11 -X utf8 -m unittest discover -s tests -v
+.\Install_Dsh_Skill.cmd
+.venv\Scripts\python.exe skills\isaac-play\scripts\isaac_tools.py setup
+.venv\Scripts\python.exe skills\isaac-play\scripts\isaac_tools.py call doctor
+.venv\Scripts\python.exe skills\isaac-play\scripts\isaac_tools.py check
 ```
 
-MIT。游戏和 Qwen 权重分别遵循其自己的许可，不包含在 Git 中。
+The skill installs to `%USERPROFILE%\.dsh\skills\isaac-play`; the tool service uses **127.0.0.1:9530**. Configure your LLM in dsh and ask it to use `isaac-play` to manage resources and progress toward completing the game. Before starting, verify `battle_ai.ready=true`, the intended checkpoint, advancing frames, and a living player. dsh handles exploration and pickups; combat is handed to Jev automatically. Installing the skill does not install dsh or provide LLM access.
+
+For **combat-only testing**, dsh is optional:
+
+```powershell
+# Shadow mode predicts while you control the character
+.venv\Scripts\python.exe run.py remote-infer --mode shadow
+# End the shadow client first, then let the policy control combat for 30 seconds
+.venv\Scripts\python.exe run.py remote-infer --mode ai --max-seconds 30
+```
+
+Press **F8** to return to manual control; pausing also stops automatic control. The standalone combat client does not explore or collect items. After source updates, reinstall the skill and use `Restart_Skill_Tools.cmd` to restart its backend, after stopping any active session. See [skill usage](docs/DSH_SKILL.md) and [in-game commands](docs/GAME_CONSOLE.md).
+
+## 4. Cluster: retrain the V010 action head
+
+The shortest route uses the **prepared dataset**. In addition to the environment and running Qwen feature service from step 2, upload:
+
+- The complete `datasets/combat-v010-tactical/` directory, including samples, numerical feature names, option texts, quality references, and runtime fixtures. Its train/validation/test counts are **1387 / 3513 / 3079**.
+- The V009 initialization package at `artifacts/combat-v009-feedback/combat-v009-feedback-s01/`.
+- The legacy encoder configuration at `artifacts/combat-v005/policy_config.json`, supplied separately. The current trainer still reads this path and loads its tokenizer from `--source/.cache/huggingface/hub`. Its model revision must match the running feature service.
+
+```bash
+cd /workspace/isaac-jev
+source .venv/bin/activate
+# Start the V009 server as in step 2 and wait for its feature RPC on port 19528
+python -u scripts/train_v007.py \
+  --source "$PWD" --dataset datasets/combat-v010-tactical \
+  --output artifacts/combat-v010-retrain --groups s01 --epochs 30 \
+  --initialize-from artifacts/combat-v009-feedback/combat-v009-feedback-s01 \
+  --learning-rate 0.0001 --feature-profile combat-tactical-v10-s01 \
+  --transfer-input-contract --run-label combat-v010-tactical
+```
+
+The trainer extracts frozen Qwen features through local **port 19528** and trains approximately **one million action-head parameters**. Do not run autoplay while extracting features. The output subdirectory retains the historical name `combat-v007-s01`; `checkpoints/epoch-001` through `epoch-030` contain every head package, while the subdirectory root contains the validation-selected checkpoint. Inspect `status.json` for progress and `result.json`, `history.json`, and `verification.json` for results. The test set is not used to select an epoch.
+
+To deploy this result, set `checkpoint` to `artifacts/combat-v010-retrain/combat-v007-s01` and `warmup_dataset` to `datasets/combat-v010-tactical` in step 2's configuration, then stop and restart the policy service. Reuse the original Qwen backbone; each epoch saves the action head rather than another backbone copy. See the [V010 input and training report](docs/FEEDBACK_V010.md).
+
+**Collecting your own data:** use `Start_Recording.cmd` for human demonstrations and `Stop_Recording.cmd` to finalize them under `recordings/`. Keep both `session.json` and `frames.jsonl.gz`; exclude diagnostic sessions, dropped frames, and AI actions. The current reconstruction chain is `prepare_v007.py` → `prepare_quality_subset.py` → `prepare_feedback_dataset.py` → `prepare_tactical_dataset.py`, using the original V005 split and matching recordings. Each script exposes path arguments through `--help`. Complete damage-free rooms are selected only for training; validation and test remain separate. For new recordings, start with `run.py prepare-dataset` and follow [demonstration collection](docs/COLLECT_DEMONSTRATIONS.md), the [V005 baseline](docs/TRAINING_V005.md), and the [V010 report](docs/FEEDBACK_V010.md). The older `train_l40s.sh` is a baseline entry point, not the current V010 trainer.
+
+## Troubleshooting and references
+
+- **Bridge disconnected:** check the actual launch directory, enabled mod, `--luadebug`, and local port 9527. A sandbox must allow local TCP.
+- **Port listening but `battle_ai.ready=false`:** inspect `doctor` and the remote log; close stale tunnels and reconnect. A listening port alone does not prove the RPC is healthy.
+- **Checkpoint or rule mismatch:** synchronize matching source and the full checkpoint, rebuild the skill, and restart its backend. Do not bypass hash validation.
+- **Missing model weights:** check the configured revision and cache directory. The offline service does not download missing weights automatically.
+
+[Architecture](docs/isaac_hierarchical_pipeline.md) · [Data contract](docs/DATA_CONTRACT.md) · [Remote inference and timing](docs/REMOTE_INFERENCE.md) · [Navigation and terrain](docs/NAVIGATION_TERRAIN.md) · [Midterm report sources](reports/midterm/README.md). Some detailed documents describe historical models and machine-specific paths; use this README and `configs/remote_policy.json` for the current entry points and default version. Most detailed project notes are currently in Chinese.
+
+Project code is licensed under **MIT**. The game, REPENTOGON, Qwen weights, and reference projects retain their respective licenses and are not automatically supplied with this repository.

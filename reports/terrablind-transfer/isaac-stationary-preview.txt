@@ -1,0 +1,34 @@
+Survive while making useful progress against enemies. Compare immediate danger, escape room and useful attack access together. When attack access is poor, compare repositioning opportunities; approaching an enemy is useful only when it improves attack access without entering contact danger. Holding a safe effective firing position or waiting for a required charge can be reasonable. Interpret geometric obstructions using the current attack capabilities. Unknown mechanisms stay unknown. Movement and shooting may occur together. Estimates are not confirmed future hits.
+
+Units: px; dx right+, dy down+; logic 30Hz. Threat horizon 6 frames.
+Player: health={'max_red': 6, 'rotten': 0, 'black_mask': 0, 'soul': 0, 'red': 1, 'bone': 0}; can_fly=no; velocity=(0,0); damage=3.5; move_speed=1.
+Weapon: tears; trigger=continuous (inferred); charge=unknown; holding=no; raw tear_range=260 (not a universal weapon range).
+Attack penetration/last attack failure reason: unknown.
+Threats (observed motion; conservative circles, not confirmed damage):
+393:1586074399 projectile: dx=-106.4,dy=25.5; closing=yes; minimum gap=34.93px; no circle contact within 6 frames.
+2:300500020 enemy: dx=-24.7,dy=249.4; closing=yes; minimum gap=227.6px; no circle contact within 6 frames.
+5:219219326 enemy: dx=-264.7,dy=49.4; closing=yes; minimum gap=246.22px; no circle contact within 6 frames.
+3:2523135318 enemy: dx=-304.7,dy=249.4; closing=yes; minimum gap=370.71px; no circle contact within 6 frames.
+4:2090887159 enemy: dx=-344.7,dy=209.4; closing=yes; minimum gap=380.27px; no circle contact within 6 frames.
+Attack geometry (not guaranteed hits; interpret terrain using capabilities; native geometry known=yes):
+2:300500020: vulnerable=yes; left forward=24.7,lateral=249.4; down forward=249.4,lateral=24.7; intervening grid=grid.
+5:219219326: vulnerable=yes; left forward=264.7,lateral=49.4; down forward=49.4,lateral=264.7; intervening grid=none observed.
+3:2523135318: vulnerable=yes; left forward=304.7,lateral=249.4; down forward=249.4,lateral=304.7; intervening grid=grid.
+4:2090887159: vulnerable=yes; left forward=344.7,lateral=209.4; down forward=209.4,lateral=344.7; intervening grid=grid,grid,grid.
+Movement facts: option | static clearance<=80px | legacy threat gap | area hazard | fire.
+stay | unknown | 34.9 | no | no
+up | 0.0 | 47.1 | no | no
+down | 80.0 | 32.7 | no | no
+left | 80.0 | 13.4 | no | no
+right | 80.0 | 58.0 | no | no
+up_left | 0.0 | 30.1 | no | no
+up_right | 0.0 | 57.3 | no | no
+down_left | 80.0 | 15.2 | no | no
+down_right | 80.0 | 49.1 | no | no
+Legacy move estimates assume instant turn at 4*move_speed for 6 frames; hazard queries use 40px. Inertia/delay not simulated.
+Area hazards omitted=0; unclassified effects=3.
+History (observations only):
+age=3 frames: observed player delta=(0,0); enemies=4,projectiles=1; health={'max_red': 6, 'rotten': 0, 'black_mask': 0, 'soul': 0, 'red': 1, 'bone': 0}.
+age=9 frames: observed player delta=(0,0); enemies=4,projectiles=1; health={'max_red': 6, 'rotten': 0, 'black_mask': 0, 'soul': 0, 'red': 1, 'bone': 0}.
+age=18 frames: observed player delta=(0,0); enemies=4,projectiles=0; health={'max_red': 6, 'rotten': 0, 'black_mask': 0, 'soul': 0, 'red': 1, 'bone': 0}.
+Unverified: attack-position paths, movement-dependent hit opportunities, damage attribution. All 9 moves remain options.

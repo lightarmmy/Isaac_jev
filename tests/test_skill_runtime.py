@@ -6,6 +6,7 @@ import tempfile
 import time
 from types import SimpleNamespace
 import unittest
+import threading
 from unittest.mock import patch
 from isaac_jev.actions import Action
 from isaac_jev.features import history_summary
@@ -37,6 +38,13 @@ def pickup(uid="item",shop=False,variant=100):
 
 
 class StateAndNavigationTests(unittest.TestCase):
+    def test_bomb_chest_is_named_without_becoming_a_pickup_goal(self):
+        f=frame();f['entities']=[{**pickup(variant=51),'pickup_name':None}]
+        memory=GameMemory();memory.update({'frame':f,'status':{'last_frame_age_ms':0}})
+        self.assertEqual(memory.pickups()[0]['name'],'Bomb Chest')
+        self.assertEqual(memory.pickups()[0]['kind'],'unsupported')
+        self.assertFalse(any(a['kind'].startswith('collect') for a in memory.actions()))
+
     def test_game_item_categories_distinguish_familiar_from_active(self):
         f=frame();f["entities"]=[{**pickup(),"subtype":270,"pickup_item_type":4}]
         mem=GameMemory();mem.update({"frame":f,"status":{"last_frame_age_ms":0}})
@@ -136,6 +144,89 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         for _ in range(8):self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertEqual(self.runtime.phase,"planning")
 
+    async def test_death_reason_survives_mode_and_lease_revocation(self):
+        await self.start_planning()
+        self.f['game_frame']+=1;self.f['player']['dead']=True
+        self.f['mode']='manual';self.f['mode_reason']='player_dead';self.lease=None
+        await self.runtime.tick()
+        self.assertFalse(self.runtime.enabled)
+        records=[json.loads(line) for line in self.runtime.log_path.read_text().splitlines()]
+        self.assertEqual([row for row in records if row['event']=='autoplay_stopped'][-1]['reason'],'player_dead')
+
+    async def test_clear_room_fire_contact_escapes_between_planning_tasks(self):
+        await self.start_planning()
+        self.f['entities']=[{'type':33,'kind':'enemy','active_enemy':False,'vulnerable':False,
+            'hp':5,'size':13,'collision_class':4,'position':{'x':100,'y':120}}]
+        self.f['game_frame']+=1;await self.runtime.tick()
+        self.assertEqual(self.runtime.phase,'navigation');self.assertIsNone(self.runtime.prediction)
+        self.assertTrue(any(e['event']=='navigation_hazard_detected' for e in self.runtime.memory.events))
+        actions=[c for c in self.commands if c['command']=='action']
+        self.assertTrue(actions);self.assertGreater(actions[-1]['move']['x'],0)
+        self.assertNotEqual(actions[-1]['controller_phase'],'combat')
+        self.f['player']['position']['x']=150
+        self.commands.clear()
+        self.f['game_frame']+=1;await self.runtime.tick()
+        self.assertTrue(any(c['command']=='action' and c['move']=={'x':0,'y':0} for c in self.commands))
+        for _ in range(8):self.f['game_frame']+=1;await self.runtime.tick()
+        self.assertEqual(self.runtime.phase,'planning');self.assertIsNone(self.runtime.fire_escape)
+        self.assertTrue(any(e['event']=='navigation_hazard_escaped' for e in self.runtime.memory.events))
+
+    async def test_fire_escape_preserves_pickup_task_and_replans_after_leaving(self):
+        self.f['room']['type']=4;self.f['entities']=[pickup()]
+        await self.start_planning()
+        await self.runtime.execute(self.runtime.memory.decision_id(),'pickup-item')
+        task_id=self.runtime.task['task_id']
+        self.f['entities'].append({'type':33,'size':13,'position':{'x':100,'y':120},'active_enemy':False,'kind':'enemy'})
+        self.f['game_frame']+=1;await self.runtime.tick()
+        self.assertEqual(self.runtime.task['task_id'],task_id)
+        self.f['player']['position']={'x':150,'y':160}
+        for _ in range(8):self.f['game_frame']+=1;await self.runtime.tick()
+        self.assertIsNotNone(self.runtime.task['navigator']);self.assertEqual(self.runtime.task['task_id'],task_id)
+        self.assertFalse(any(e['event']=='task_blocked' for e in self.runtime.memory.events))
+
+    async def test_fire_safety_does_not_reacquire_manual_or_revoked_control(self):
+        self.f['entities']=[{'type':33,'size':13,'position':{'x':100,'y':120}}]
+        self.commands.clear();await self.runtime.tick()
+        self.assertFalse(any(c['command']=='action' for c in self.commands))
+        self.f['entities']=[];await self.start_planning()
+        self.f['entities']=[{'type':33,'size':13,'position':{'x':100,'y':120}}]
+        self.lease=None;self.f['game_frame']+=1;self.commands.clear();await self.runtime.tick()
+        self.assertFalse(any(c['command']=='action' for c in self.commands));self.assertFalse(self.runtime.enabled)
+
+    async def test_fire_safety_overrides_pickup_confirmation_wait(self):
+        self.f['room']['type']=4;self.f['entities']=[pickup()]
+        await self.start_planning();await self.runtime.execute(self.runtime.memory.decision_id(),'pickup-item')
+        self.f['entities']=[];self.f['game_frame']+=1;await self.runtime.tick()
+        self.assertEqual(self.runtime.task['stage'],'awaiting_pickup_confirmation')
+        self.f['entities']=[{'type':33,'size':13,'kind':'enemy','active_enemy':False,'position':{'x':100,'y':120}}]
+        self.f['game_frame']+=1;await self.runtime.tick()
+        self.assertEqual(self.runtime.observe()['execution']['navigation']['stage'],'escape_fire')
+        actions=[c for c in self.commands if c['command']=='action']
+        self.assertGreater(actions[-1]['move']['x'],0)
+        self.assertEqual(self.runtime.task['stage'],'awaiting_pickup_confirmation')
+
+    async def test_feature_build_allows_frame_updates_and_keeps_original_identity(self):
+        await self.start_planning()
+        source=copy.deepcopy(self.f);entered=threading.Event();release=threading.Event()
+        def build(*args,**kwargs):
+            entered.set();release.wait(1);return 'fixture prompt',[],[]
+        async def request(payload):
+            return {'observation':payload['observation'],'move_id':1,'shoot_id':1,'action_id':6,'use_active':False,'model_ms':1}
+        self.runtime.policy_config={'numeric_names':[],'hold_frames':3,'feature_version':'fixture','head_architecture':'fixture','rules_sha256':'fixture'}
+        self.runtime.policy=SimpleNamespace(writer=True,request=request)
+        with patch('isaac_jev.skill_runtime.policy_observation',side_effect=build):
+            scoring=asyncio.create_task(self.runtime.score(source,[],self.runtime.generation))
+            try:
+                for _ in range(20):
+                    if entered.is_set():break
+                    await asyncio.sleep(.005)
+                self.assertTrue(entered.is_set());self.assertFalse(scoring.done())
+                self.f['game_frame']+=1;await self.runtime.tick()
+                self.assertEqual(self.runtime.memory.frame['game_frame'],source['game_frame']+1)
+            finally:release.set()
+            _,returned,_,_,_=await scoring
+        self.assertEqual(returned['game_frame'],source['game_frame'])
+
     async def test_enter_room_waits_for_combat_and_settling(self):
         await self.start_planning()
         await self.runtime.execute(self.runtime.memory.decision_id(),"door-0")
@@ -204,6 +295,16 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.f["entities"][0]["subtype"]=45;self.f["player"]["active"]={"id":58,"charge":3}
         self.f["game_frame"]+=1;await self.runtime.tick()
         self.assertIsNone(self.runtime.task);self.assertTrue(any(e["event"]=="task_completed" for e in self.runtime.memory.events))
+
+    async def test_precharge_uses_fresh_commands_without_moving_during_charge(self):
+        self.f['player']['weapons']=[{'slot':1,'type':2,'charge':3,'max_charge':6}]
+        await self.start_planning();self.runtime.policy_config={'feature_version':'combat-build-terrain-weapons-v5'}
+        await self.runtime.execute(self.runtime.memory.decision_id(),'door-0',prepare_for_combat=True)
+        self.f['game_frame']+=1;await self.runtime.tick()
+        command=[c for c in self.commands if c['command']=='action'][-1]
+        self.assertEqual(command['move'],{'x':0,'y':0});self.assertEqual(command['shoot'],{'x':-1,'y':0})
+        self.assertTrue(command['charge_hold']);self.assertEqual(command['handoff_room_id'],'1:0:16')
+        self.assertEqual(self.runtime.task['stage'],'precharging')
 
     async def test_leech_and_trinket_delayed_confirmation(self):
         self.f["room"]["type"]=4

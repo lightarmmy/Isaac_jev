@@ -11,6 +11,7 @@ ROOM_TYPES={1:"normal",2:"shop",3:"error",4:"treasure",5:"boss",6:"miniboss",7:"
     12:"library",13:"sacrifice",14:"devil",15:"angel",16:"dungeon",17:"boss_rush",18:"isaacs",19:"barren",20:"chest",21:"dice",
     22:"black_market",23:"greed_exit",24:"planetarium",25:"teleporter",26:"teleporter_exit",27:"secret_exit",28:"blue",29:"ultra_secret"}
 PICKUPS={10:"heart",20:"coin",30:"key",40:"bomb",70:"pill",90:"battery",100:"collectible",300:"card",350:"trinket"}
+UNSUPPORTED_PICKUP_NAMES={50:'Chest',51:'Bomb Chest',52:'Spiked Chest',53:'Eternal Chest',54:'Mimic Chest',55:'Old Chest',56:'Wooden Chest',57:'Mega Chest',58:'Haunted Chest',60:'Locked Chest'}
 
 
 class GameMemory:
@@ -63,7 +64,7 @@ class GameMemory:
             kind=PICKUPS.get(e.get("variant"),"unsupported")
             result.append({"id":e["uid"],"kind":kind,"variant":e.get("variant"),
                 "item_id":None if e.get("pickup_blind") else e.get("subtype"),
-                "name":e.get("pickup_name") or ("unknown collectible" if kind=="collectible" else kind),
+                "name":e.get("pickup_name") or ("unknown collectible" if kind=="collectible" else UNSUPPORTED_PICKUP_NAMES.get(e.get('variant'),kind)),
                 "short_description":e.get("pickup_description"),"quality":e.get("pickup_quality"),"item_type":e.get("pickup_item_type"),
                 "item_category":ITEM_CATEGORIES.get(e.get("pickup_item_type")),
                 "is_active":e.get("pickup_item_type")==3 if e.get("pickup_item_type") is not None else None,

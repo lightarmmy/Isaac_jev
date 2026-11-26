@@ -1,0 +1,642 @@
+{
+  "108": {
+    "name": "The Wafer",
+    "summary": "被动道具，角色受到的所有伤害减半，但单次伤害不会降到半颗心以下。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C108"
+    ],
+    "revision": "571493b9eb5ac45c"
+  },
+  "109": {
+    "name": "Money = Power",
+    "summary": "被动道具，伤害提升0.04×角色当前硬币数（多个不叠加）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C109"
+    ],
+    "revision": "ad50ba89d76d9fa5"
+  },
+  "115": {
+    "name": "Ouija Board",
+    "summary": "被动道具，泪弹获得灵体（可穿过障碍物）效果，射速+0.50。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C115"
+    ],
+    "revision": "1c48b5369f1ec1dc"
+  },
+  "118": {
+    "name": "Brimstone",
+    "summary": "被动道具，攻击方式改为蓄力发射无限射程、可穿透敌人和障碍的鲜血激光柱（射速×1/3，命中每4帧造成100%角色伤害）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C118"
+    ],
+    "revision": "f1e0076f02c38565"
+  },
+  "120": {
+    "name": "Odd Mushroom",
+    "summary": "被动道具，移速+0.30、射速+1.00，并把伤害修正改为「伤害加成×90%-0.40」。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C120"
+    ],
+    "revision": "de0a56dccfbe1517"
+  },
+  "123": {
+    "name": "Monster Manual",
+    "summary": "主动道具，使用后在本房间随机生成1个跟班（忏悔+改为本层随机获得1个「怪物手册」标签道具的效果）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C123"
+    ],
+    "revision": "6035f92ba1712051"
+  },
+  "133": {
+    "name": "Guppy's Paw",
+    "summary": "主动道具，使用后失去1个心之容器，换取3颗魂心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C133"
+    ],
+    "revision": "57d8200e2505dffd"
+  },
+  "134": {
+    "name": "Guppy's Tail",
+    "summary": "被动道具，清房奖励有概率被替换为箱子、金箱子或空物品（1/6、1/6、2/9，其余4/9不变）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C134"
+    ],
+    "revision": "f2070fa1aa39ed98"
+  },
+  "135": {
+    "name": "IV Bag",
+    "summary": "主动道具，使用后对角色造成半颗红心伤害，生成1~2个随机硬币（困难模式固定1个）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C135"
+    ],
+    "revision": "81adc83d89a11502"
+  },
+  "136": {
+    "name": "Best Friend",
+    "summary": "主动道具，使用后在原地生成诱饵吸引敌人仇恨，5秒后爆炸造成185.0点伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C136"
+    ],
+    "revision": "cfc986b4fe49d9fa"
+  },
+  "142": {
+    "name": "Scapular",
+    "summary": "被动道具，受伤后若血量为半颗心或0颗心且未死亡，获得1颗魂心（每房间仅一次）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C142"
+    ],
+    "revision": "2e93d7505f9cf509"
+  },
+  "144": {
+    "name": "Bum Friend",
+    "summary": "被动道具，生成乞丐朋友跟班，自动拾取附近硬币，攒够硬币后消耗它们生成随机掉落物或道具。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C144"
+    ],
+    "revision": "23f7c8d5cf7b1948"
+  },
+  "145": {
+    "name": "Guppy's Head",
+    "summary": "主动道具，使用后生成2~4个蓝苍蝇。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C145"
+    ],
+    "revision": "5fc19c3fe7fd0958"
+  },
+  "154": {
+    "name": "Chemical Peel",
+    "summary": "被动道具，左眼发射的泪弹变为血泪，伤害修正+2.00（不叠加）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C154"
+    ],
+    "revision": "21a9659689e78e52"
+  },
+  "159": {
+    "name": "Spirit of the Night",
+    "summary": "被动道具，角色获得飞行效果，泪弹获得灵体（穿障碍）效果。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C159"
+    ],
+    "revision": "c38e710e6e75c3dc"
+  },
+  "160": {
+    "name": "Crack the Sky",
+    "summary": "主动道具，使用后在房间随机位置生成5道光柱，每道至多6次造成20.00+100%角色伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C160"
+    ],
+    "revision": "3f25366a1f700a36"
+  },
+  "163": {
+    "name": "Ghost Baby",
+    "summary": "被动道具，生成幽灵宝宝跟班，每44帧（每秒1.36次）发射1颗灵体泪弹，每颗造成3.50点伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C163"
+    ],
+    "revision": "c98f27a736acc4c7"
+  },
+  "174": {
+    "name": "Rainbow Baby",
+    "summary": "被动道具，生成彩虹宝宝跟班，随机模仿其他跟班的泪弹攻击（伤害3.00~5.00不等）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C174"
+    ],
+    "revision": "3bd28cf9c70c5e01"
+  },
+  "178": {
+    "name": "Holy Water",
+    "summary": "被动道具，生成圣水跟班，会朝玩家射击方向飞出并在碰到敌人时破裂，造成7.00点伤害并留下石化敌人的水迹。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C178"
+    ],
+    "revision": "dd2c03a4371c25d3"
+  },
+  "190": {
+    "name": "Pyro",
+    "summary": "被动道具，拾取后获得99个炸弹。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C190"
+    ],
+    "revision": "d328d8948730ecab"
+  },
+  "194": {
+    "name": "Magic 8 Ball",
+    "summary": "被动道具，拾取生成1张随机非符文卡牌，弹速+0.16；本局未进过星象房时星象房出现概率+15%。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C194"
+    ],
+    "revision": "9e6fac0c43b5d2a5"
+  },
+  "196": {
+    "name": "Squeezy",
+    "summary": "被动道具，拾取生成2颗魂心，射速+0.40。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C196"
+    ],
+    "revision": "aa75a3e32fc1c6f0"
+  },
+  "215": {
+    "name": "Goat Head",
+    "summary": "被动道具，恶魔房开启率变为100%。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C215"
+    ],
+    "revision": "2c3f65803567d02c"
+  },
+  "218": {
+    "name": "Placenta",
+    "summary": "被动道具，获得1个心之容器并回复1颗红心；之后每60秒有50%概率回复半颗红心（不叠加）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C218"
+    ],
+    "revision": "a3ad07b4d8490a77"
+  },
+  "22": {
+    "name": "Lunch",
+    "summary": "被动道具，拾取后获得1个心之容器并回复1颗红心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C22"
+    ],
+    "revision": "90fccfa054b11231"
+  },
+  "225": {
+    "name": "Gimpy",
+    "summary": "被动道具，受伤时按幸运概率生成魂心（最高100%），敌人死亡时按血量概率生成半红心（1%/5%/10%）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C225"
+    ],
+    "revision": "9b70bf23013ceae1"
+  },
+  "227": {
+    "name": "Piggy Bank",
+    "summary": "被动道具，拾取获得3个硬币，此后每次受伤生成1~2枚硬币（不叠加）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C227"
+    ],
+    "revision": "b233ab4c3408cf3a"
+  },
+  "23": {
+    "name": "Dinner",
+    "summary": "被动道具，拾取后获得1个心之容器并回复1颗红心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C23"
+    ],
+    "revision": "0211e48d3083853b"
+  },
+  "247": {
+    "name": "BFFS!",
+    "summary": "被动道具，所有跟班尺寸增大25%，固定伤害的跟班伤害翻倍、掉落型跟班更容易产出（不叠加）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C247"
+    ],
+    "revision": "addfb2ffd46f5e90"
+  },
+  "25": {
+    "name": "Breakfast",
+    "summary": "被动道具，拾取后获得1个心之容器并回复1颗红心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C25"
+    ],
+    "revision": "db45ce978f7e804b"
+  },
+  "256": {
+    "name": "Hot Bombs",
+    "summary": "被动道具，拾取获得5个炸弹；角色炸弹产生接触伤害、爆炸后留下火焰，并免疫爆炸伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C256"
+    ],
+    "revision": "82fb788ebdc86b77"
+  },
+  "26": {
+    "name": "Rotten Meat",
+    "summary": "被动道具，拾取后获得1个心之容器并回复1颗红心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C26"
+    ],
+    "revision": "508a0c4dab3ea3f2"
+  },
+  "268": {
+    "name": "Rotten Baby",
+    "summary": "被动道具，生成腐烂宝宝跟班（正文该节只给出实体生成，攻击数值未在效果段说明）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C268"
+    ],
+    "revision": "9d9f322f4df299a1"
+  },
+  "27": {
+    "name": "Wooden Spoon",
+    "summary": "被动道具，移速+0.30。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C27"
+    ],
+    "revision": "9e6c3ca0606cda5c"
+  },
+  "270": {
+    "name": "Leech",
+    "summary": "被动道具，生成一个水蛭跟班：自动追踪敌人造成持续伤害，水蛭击杀敌人时角色回复半颗红心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C270"
+    ],
+    "revision": "d815236265ecd168"
+  },
+  "28": {
+    "name": "The Belt",
+    "summary": "被动道具，移速+0.30。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C28"
+    ],
+    "revision": "f0c98aa7c265e6d5"
+  },
+  "282": {
+    "name": "How to Jump",
+    "summary": "主动道具，使用后向方向键方向跳跃，可跳过障碍物，跳跃距离取决于移速。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C282"
+    ],
+    "revision": "b54d2952ff60ca08"
+  },
+  "29": {
+    "name": "Mom's Underwear",
+    "summary": "被动道具，拾取后生成3~6个蓝苍蝇，射程+2.50、眼泪高度+0.50。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C29"
+    ],
+    "revision": "3e20b2adb5726ed7"
+  },
+  "309": {
+    "name": "Pisces",
+    "summary": "被动道具，射速+0.50，泪弹击退效果增强、尺寸增大。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C309"
+    ],
+    "revision": "5b4fbbf6a200af22"
+  },
+  "317": {
+    "name": "Mysterious Liquid",
+    "summary": "被动道具，泪弹击中敌人或落地后留下绿色水迹，每秒30次造成1.00点伤害（单滩上限25.00）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C317"
+    ],
+    "revision": "8e7ff23df60cfb19"
+  },
+  "326": {
+    "name": "Breath of Life",
+    "summary": "主动道具，按住使用键持续消耗充能，耗尽时进入无敌：接触敌人造成3.50伤害并生成圣光柱，或免疫一次伤害并放出四向光束。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C326"
+    ],
+    "revision": "b7f5d3cedef2e404"
+  },
+  "33": {
+    "name": "The Bible",
+    "summary": "主动道具，使用后当前房间获得飞行；可秒杀妈腿/妈心等Boss，但房间有撒但时会立即杀死角色。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C33"
+    ],
+    "revision": "ec0437869097679a"
+  },
+  "339": {
+    "name": "Safety Pin",
+    "summary": "被动道具，获得1颗黑心，射程+2.50、上抛速度+0.50、弹速+0.16。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C339"
+    ],
+    "revision": "250f7358e23605af"
+  },
+  "340": {
+    "name": "Caffeine Pill",
+    "summary": "被动道具，拾取获得1个随机胶囊、移速+0.30，角色体型缩小至0.9倍。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C340"
+    ],
+    "revision": "164c94ccbb27c13c"
+  },
+  "341": {
+    "name": "Torn Photo",
+    "summary": "被动道具，射速+0.70、弹速+0.16。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C341"
+    ],
+    "revision": "c405bfb2c7a19e2c"
+  },
+  "342": {
+    "name": "Blue Cap",
+    "summary": "被动道具，获得1个心之容器并回复1颗红心，射速+0.70、弹速-0.16。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C342"
+    ],
+    "revision": "539aea605149929f"
+  },
+  "344": {
+    "name": "Match Book",
+    "summary": "被动道具，拾取获得1颗黑心、3个随机炸弹，并生成1个火柴棍（本局首次）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C344"
+    ],
+    "revision": "e043926487580812"
+  },
+  "352": {
+    "name": "Glass Cannon",
+    "summary": "主动道具，使用后举枪按射击键发射巨大灵体穿刺泪弹（10.00+1000%角色伤害）并后移一格；受到惩罚伤害时会变成损坏的玻璃大炮。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C352"
+    ],
+    "revision": "1efd621dc1a06f1e"
+  },
+  "355": {
+    "name": "Mom's Pearls",
+    "summary": "被动道具，获得1颗魂心，射程+2.50、上抛速度+0.50、幸运+1.00。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C355"
+    ],
+    "revision": "b8d613588ff1c55c"
+  },
+  "379": {
+    "name": "Pupula Duplex",
+    "summary": "被动道具，把泪弹变成月牙形并增大碰撞箱，同时获得灵体泪弹；胎衣版本加入，属于宝箱房道具池（含贪婪模式宝箱房）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C379"
+    ],
+    "revision": "2fbe4815505f340e"
+  },
+  "385": {
+    "name": "Bumbo",
+    "summary": "被动道具，生成Bumbo跟班，自动拾取硬币升级（1~4级），高等级会发射泪弹、造成接触伤害并产出奖励掉落。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C385"
+    ],
+    "revision": "f81942d609a10f68"
+  },
+  "390": {
+    "name": "Seraphim",
+    "summary": "被动道具，生成撒拉弗跟班，每次攻击发射1颗追踪泪弹，每颗造成10.00点伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C390"
+    ],
+    "revision": "b7571f0dfa520bc1"
+  },
+  "402": {
+    "name": "Chaos",
+    "summary": "被动道具，拾取生成1~6个随机掉落物；此后生成道具时先随机选一个道具池再从中抽取（按数量加权）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C402"
+    ],
+    "revision": "d64655ee902c3f13"
+  },
+  "426": {
+    "name": "Obsessed Fan",
+    "summary": "被动道具，生成狂热粉丝跟班，沿角色0.66秒前的轨迹移动，接触敌人每4帧造成2.00点伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C426"
+    ],
+    "revision": "44944ba2c897d6ad"
+  },
+  "430": {
+    "name": "Papa Fly",
+    "summary": "被动道具，生成狙击蝇老爹跟班，沿角色0.66秒前的轨迹移动，每秒对附近敌人发射1颗100%角色伤害的泪弹。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C430"
+    ],
+    "revision": "e23ac9e38150a657"
+  },
+  "438": {
+    "name": "Binky",
+    "summary": "被动道具，获得1颗魂心、射速+0.75，角色体型缩小至0.8倍。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C438"
+    ],
+    "revision": "6bbb9874d47a2c10"
+  },
+  "44": {
+    "name": "Teleport!",
+    "summary": "主动道具，使用后把角色传送到当前层的一个随机房间（各房间概率相同）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C44"
+    ],
+    "revision": "dd2037ac7765e6c0"
+  },
+  "447": {
+    "name": "Linger Bean",
+    "summary": "被动道具，按住攻击键4秒后在原地生成毒云，持续10秒，对接触敌人造成约170%→58%角色伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C447"
+    ],
+    "revision": "b9145e0880303a76"
+  },
+  "451": {
+    "name": "Tarot Cloth",
+    "summary": "被动道具，拾取随机获得1张塔罗/逆位塔罗；使用塔罗牌时视为连续使用2次（部分卡牌改为特殊效果）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C451"
+    ],
+    "revision": "805ae8f9843e0d38"
+  },
+  "452": {
+    "name": "Varicose Veins",
+    "summary": "被动道具，受伤时向四周发射10颗眼泪（100%伤害+25.00），20%概率获得贫血效果2秒。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C452"
+    ],
+    "revision": "1129ddb7912bbc44"
+  },
+  "456": {
+    "name": "Midnight Snack",
+    "summary": "被动道具，拾取后获得1个心之容器并回复1颗红心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C456"
+    ],
+    "revision": "f8e4316d3b511695"
+  },
+  "471": {
+    "name": "Lil Monstro",
+    "summary": "被动道具，生成萌死戳宝宝跟班，蓄力1秒后抛射12颗泪弹，每颗造成3.50点伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C471"
+    ],
+    "revision": "b765a4ec09080d8b"
+  },
+  "569": {
+    "name": "Blood Oath",
+    "summary": "被动道具，生成血誓跟班，每进入新楼层吸走全部红心/腐心换取移速与伤害加成（每半心1层，层数本层内有效）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C569"
+    ],
+    "revision": "a45e56e9c1bde271"
+  },
+  "575": {
+    "name": "The Intruder",
+    "summary": "被动道具，生成侵体蜘蛛：平时藏在头里每1.5秒额外发射4颗减速泪弹（1.50伤害），角色受伤或红心≤半颗时落地追踪攻击并生成1~3只蓝蜘蛛。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C575"
+    ],
+    "revision": "6e119e55057657d1"
+  },
+  "58": {
+    "name": "Book of Shadows",
+    "summary": "主动道具，使用后在当前房间获得持续10秒、免疫所有伤害的护盾，多次使用可叠加持续时间。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C58"
+    ],
+    "revision": "aec76252756500e7"
+  },
+  "599": {
+    "name": "Voodoo Head",
+    "summary": "忏悔加入的被动道具：每次进入新楼层时，条件允许就额外生成 1 个诅咒房；诅咒房使用特殊布局且必定包含 1 枚硬币。多个不叠加。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C599"
+    ],
+    "revision": "626d7960365789f2"
+  },
+  "6": {
+    "name": "Number One",
+    "summary": "被动道具，射速+1.50，但射程-1.50（修正×80%）、泪弹高度-0.76，泪弹变为黄色。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C6"
+    ],
+    "revision": "e5dc0836f077c48b"
+  },
+  "600": {
+    "name": "Eye Drops",
+    "summary": "被动道具，泪弹攻击时左眼射速+40%（面板射速×120%），一个周期左眼7颗、右眼5颗；非泪弹攻击则射速×120%。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C600"
+    ],
+    "revision": "f6e0c70185cddce1"
+  },
+  "624": {
+    "name": "Booster Pack",
+    "summary": "被动道具，拾取后生成5张随机卡牌（按概率出塔罗牌/扑克牌/特殊卡牌）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C624"
+    ],
+    "revision": "1a04c61439c5afee"
+  },
+  "63": {
+    "name": "The Battery",
+    "summary": "被动道具，让角色的主动道具获得额外一条（黄色）充能条；多个不叠加。商店/电池乞丐/夹娃娃机道具池。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C63"
+    ],
+    "revision": "f9a9cf5c828d220a"
+  },
+  "637": {
+    "name": "Knockout Drops",
+    "summary": "被动道具，按幸运概率发射拳头泪弹，命中大幅击退并眩晕2秒；被击退撞墙的敌人再受10+2×(楼层-1)点伤害。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C637"
+    ],
+    "revision": "7221d63af3ef8a08"
+  },
+  "644": {
+    "name": "Consolation Prize",
+    "summary": "被动道具，拾取后按角色最少的基础物品生成对应硬币/炸弹/钥匙（伯大尼额外魂心），并按最低属性给对应加成。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C644"
+    ],
+    "revision": "98070aff1bb4618a"
+  },
+  "659": {
+    "name": "Tropicamide",
+    "summary": "被动道具，射程+2.50并增大眼泪尺寸。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C659"
+    ],
+    "revision": "27fbb7f84d193f51"
+  },
+  "707": {
+    "name": "Supper",
+    "summary": "被动道具，拾取后获得1个心之容器并回复1颗红心。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C707"
+    ],
+    "revision": "7e531cf8f538f848"
+  },
+  "708": {
+    "name": "Stapler",
+    "summary": "被动道具，伤害+1.00，所有泪弹改为只从右眼发射（类似该隐）。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C708"
+    ],
+    "revision": "113a3695ad9c8fa1"
+  },
+  "72": {
+    "name": "Rosary",
+    "summary": "被动道具，获得3颗魂心，道具池中的道具有概率按念珠数量被替换成圣经，射速+0.50。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C72"
+    ],
+    "revision": "7a6d8379c2c50de9"
+  },
+  "78": {
+    "name": "Book of Revelations",
+    "summary": "主动道具，恶魔房开启率+17.5%；使用后获得1颗魂心，本层Boss大概率（忏悔必）替换为对应天启骑士。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C78"
+    ],
+    "revision": "80ef7ba23433f130"
+  },
+  "79": {
+    "name": "The Mark",
+    "summary": "被动道具，获得1颗黑心，移速+0.20、伤害+1.00。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C79"
+    ],
+    "revision": "b2a87b65147efaf8"
+  },
+  "80": {
+    "name": "The Pact",
+    "summary": "被动道具，获得2颗黑心，射速+0.70、伤害+0.50，泪弹变为血泪。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C80"
+    ],
+    "revision": "32e27e5566bc8806"
+  },
+  "89": {
+    "name": "Spider Bite",
+    "summary": "被动道具，按幸运值决定概率发射100%伤害的减速泪弹，命中使敌人及其泪弹减速2.5秒。",
+    "sources": [
+      "https://isaac.huijiwiki.com/wiki/C89"
+    ],
+    "revision": "32ed2fe057381e35"
+  }
+}

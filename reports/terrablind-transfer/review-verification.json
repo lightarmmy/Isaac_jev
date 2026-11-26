@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-25",
+  "repository": "https://github.com/Reisenbug/TerraBlind",
+  "commits": {
+    "TerraBlind": "fac39c763afab11d8beb4657475f6de95634c32c",
+    "TerraBlind-dev": "6b3b90ed419c91e9741690b551ca4093e2a9206e"
+  },
+  "reviewed_dev_source_sha256": {
+    "README.md": "d8c0cabfab1d307e27408558f46a26c89104df3b3bafd943c49f5b3cbcd5d8de",
+    "LICENSE": "d3d79d2e0cab6a7a2369dc973482a3ace35d17d1f389422c81ea8bcc833bfb61",
+    "Jev/Fight/Dodge.cs": "e13cae7ee173e410ae1f2a22ae49deb30fb12425c3002791e25226e088896348",
+    "Jev/Fight/BossBook.cs": "3d87adabab60dbfc7be8277a67b39a15f1a1f7996f5d7810c36369e051c6b345",
+    "Jev/Fight/JevPrior.cs": "5ee1f9190d35b45f5096ad2d842e5248b5805756a338b3a0e74ae3d1dcb023ee",
+    "Jev/Port/DecisionFacts.cs": "5ca21b4a2b76aa83a2e91b3639cf4e3d609f4523e11f5fe47541c7efe298a9d5",
+    "Jev/Port/GameSensor.cs": "9acede9d68a7f44dbec844ac2c70b141084d26cc37aed9cd296a5b22bd2ea6eb",
+    "Jev/Port/GameMovement.cs": "f52db7e3c06d2af2a9022879675667d78a15439755f5cac8b2b6bc5a61cc4f64",
+    "Jev/Port/Contracts.cs": "6e8c76aba1285eef320fcf329d94216361630f4201add35995f9dfcff3e33c71",
+    "Jev/Port/ProjectileAim.cs": "5a712e2ab4ad8da7af6856d9cd02cb9f49a8c2e64ef0f83c770c70b332a58b63",
+    "Flow/PvpTactics.cs": "4bf20179418c95510eabfd466495041c88d8dbae48a40cf541c91114af976db5",
+    "Flow/PvpDuel.cs": "350389e08f8b67659bba687d6adc4a28a2314f8adc4e7473cdb47db67e50ef23",
+    "Flow/FightCoordinator.cs": "dd896dd9b9f818d70dc53c9a15b29a403a846c14aa7131f3f9455e93aa02046d",
+    "Agent/CombatForecast.cs": "a7134337653642ecdaeb60973722af94bc88725619a8f8c318a7aef46e3972f9",
+    "Agent/AgentTools.cs": "94bdb99abdf3cb2fd7f54b3913cf1bd3c52638a81e1acf60758b4f4d7dbee296",
+    "tests/Rl/README.md": "1db0d8b844f655bb6444542f23e60a54c0e43c2c91004f50227099fc8f49bbe1",
+    "tests/Rl/train.py": "9f5d2a2a861bd56c2339af5301024f5dc3d3774758a1d29e22ef8573a06c9128"
+  },
+  "license": "MIT; upstream license retained in reference checkouts",
+  "training_evidence": {
+    "jev_boss_path": "TypeSafe API calls; no local Jev training in this path",
+    "independent_ppo": "tests/Rl/train.py: PPO MlpPolicy with [64,64]; independent movement lab"
+  },
+  "verification": {
+    "offline_checks_passed": 8,
+    "model_requests": 0,
+    "game_inputs": 0,
+    "deployed_feature_contract_changed": false,
+    "new_training_started": false,
+    "preview_json_is_full_audit_and_text_is_bounded_summary": true,
+    "review_links_and_source_hashes_verified": true
+  },
+  "previews": [
+    {
+      "case": "stationary",
+      "room_id": "1:0:83",
+      "game_frame": 1670,
+      "legacy_characters": 5514,
+      "preview_characters": 3344,
+      "warm_build_ms_median": {
+        "v005": 4.875,
+        "preview": 6.018
+      },
+      "warm_repeats": 20,
+      "characters_are_not_token_counts": true,
+      "character_reduction_percent": 39.35
+    },
+    {
+      "case": "cleared_room",
+      "room_id": "1:0:96",
+      "game_frame": 2401,
+      "legacy_characters": 4418,
+      "preview_characters": 2367,
+      "warm_build_ms_median": {
+        "v005": 1.802,
+        "preview": 2.176
+      },
+      "warm_repeats": 20,
+      "characters_are_not_token_counts": true,
+      "character_reduction_percent": 46.42
+    }
+  ],
+  "preview_artifact_sha256": {
+    "isaac-cleared-room-preview.json": "fec9cc06becd9226ad0ef8dc9e33a5008cc55bf3cc6b9a4a9462513051030337",
+    "isaac-cleared-room-preview.txt": "8c3882f10259653d28c364bde0d90a553e1058ad65b2d931ccdcbc7c44e1de6a",
+    "isaac-stationary-preview.json": "61450ef3e0b097f98e033048e531c2d5328d3966dfef3aee0df8b7c645ccdeb7",
+    "isaac-stationary-preview.txt": "c9b4564b1c3e8e8bfd37f3352c3abb31fefb93838be5ee3289bf2a3984e834b6",
+    "terrablind-request-shape.json": "be911b0f728a8504ad4619cbd3898b7d50f3b37943e4fcea173f406097ab6501"
+  }
+}

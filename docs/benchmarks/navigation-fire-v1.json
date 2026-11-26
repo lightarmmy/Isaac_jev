@@ -1,0 +1,54 @@
+{
+  "checkpoint": "combat-v006-e08-epoch013",
+  "policy_ready": true,
+  "service_pid": 43060,
+  "portable_skill_files_verified": 43,
+  "tests_passed": 182,
+  "offline_replay": {
+    "scope": "offline recorded-room route and simplified delayed-input physics; no game inputs",
+    "room_id": "1:0:96",
+    "old_route": [
+      [
+        560,
+        280
+      ],
+      [
+        320,
+        280
+      ]
+    ],
+    "new_route": [
+      [
+        560.0,
+        280.0
+      ],
+      [
+        440.0,
+        240.0
+      ],
+      [
+        320.0,
+        280.0
+      ]
+    ],
+    "reached_pickup_position": true,
+    "simulation_frames": 39,
+    "hazard_contacts": 0,
+    "minimum_padded_fire_clearance_px": 0.7662582064082102
+  },
+  "game_after_restart": {
+    "autoplay": false,
+    "controller_phase": "manual",
+    "room_id": "1:0:96",
+    "dead": true,
+    "health": {
+      "bone": 0,
+      "red": 0,
+      "rotten": 0,
+      "max_red": 6,
+      "black_mask": 0,
+      "soul": 0
+    }
+  },
+  "live_pickup_verified": false
+}

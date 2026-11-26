@@ -63,7 +63,7 @@ def damage_evidence(segment, callbacks):
     return evidence
 
 
-def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OUTCOME_WINDOW, action_lag_frames=1):
+def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OUTCOME_WINDOW, action_lag_frames=1,combat_fn=None):
     """Assess a trajectory after the aligned action, without blaming a single keypress."""
     if not 1 <= window_frames <= 150:
         raise ValueError("Outcome window must be 1..150 logic frames")
@@ -74,7 +74,8 @@ def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OU
              "causal_claim": False}
     # Same-frame callbacks can precede input sampling; do not assign them to this action.
     end = min(len(segment)-1, action_index + window_frames)
-    combat_ended_at = next((i for i in range(action_index, end+1) if not combat_active(segment[i])), None)
+    phase=combat_fn or combat_active
+    combat_ended_at = next((i for i in range(action_index, end+1) if not phase(segment[i])), None)
     if combat_ended_at is not None:end=combat_ended_at
     ambiguous = action_index in evidence
     for i in range(action_index+1, end+1):
@@ -92,6 +93,7 @@ def label_outcome(segment, observation_index, evidence, window_frames=DEFAULT_OU
     observation = segment[observation_index]
     threatened = any(e.get("kind") in {"enemy", "projectile", "laser", "bomb"}
                      and not e.get("friendly") and not e.get("dead") for e in observation.get("entities", []))
+    if combat_fn:threatened=threatened or phase(observation)
     if not threatened:
         return {**label, "reason": "no_observed_threat"}
     if any(not f["player"].get("controls_enabled", True) for f in segment[action_index:end+1]):

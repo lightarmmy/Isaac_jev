@@ -1,0 +1,41 @@
+{
+  "rows": 7979,
+  "fixture_input_matches": 32,
+  "source_labels_splits_unchanged": true,
+  "validation_test_quality_unchanged": true,
+  "samples_sha256": "8e76974ac3bf58f9bb1a828e54c6613d260089e9e3e3481d0d7e973393c4c2e3",
+  "numeric_size": 1018,
+  "token_lengths": {
+    "minimum": 1669,
+    "maximum": 2844,
+    "over3072": 0
+  },
+  "tactical_weight_counts": {
+    "safe_route_progress_with_attack_progress": 68
+  },
+  "remote_training_started": true,
+  "training_bundle": {
+    "path": "D:\\my_project_for_D\\qwen_jev_for_cardgame\\.local\\v010-tactical-update.zip",
+    "sha256": "5e9b718cd757b03408647c70b61ffdd50f9ab686aea6f320d44779dacc6e9253",
+    "bytes": 11793001
+  },
+  "v009_numeric_prefix_matches": 7979,
+  "train_phase_coverage": {
+    "boss_rows": 59,
+    "phase_counts": {
+      "other_or_unknown": 4267,
+      "noncontact_unknown": 50
+    },
+    "contact_counts": {
+      "True": 4267,
+      "False": 50
+    },
+    "jump_landing_rows": 0
+  },
+  "remote_training_workspace": "/xufanghui/isaac-jev-tactical-v010",
+  "remote_training_completed": true,
+  "retained_heads": 30,
+  "selected_epoch": 1,
+  "encoder_checks": 32,
+  "prediction_rpc_checks": 32
+}

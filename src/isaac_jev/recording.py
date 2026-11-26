@@ -68,10 +68,13 @@ class SessionRecorder:
                               "written": self.written, "dropped": self.dropped, "error": self.error})
         self._save_metadata()
 
-def iter_messages(path: Path, include_diagnostics=True, include_session=False):
+def iter_messages(path: Path, include_diagnostics=True, include_session=False, only_closed=False):
     files = sorted(path.glob("*/frames.jsonl.gz")) if path.is_dir() and not (path / "frames.jsonl.gz").exists() else [path / "frames.jsonl.gz" if path.is_dir() else path]
     for file in files:
         metadata_path=file.parent/"session.json"
+        if only_closed and metadata_path.is_file():
+            metadata=json.loads(metadata_path.read_text(encoding='utf-8'))
+            if not metadata.get('closed_at_unix') or metadata.get('error'):continue
         if not include_diagnostics and metadata_path.is_file():
             metadata=json.loads(metadata_path.read_text(encoding="utf-8"))
             if metadata.get("purpose")=="diagnostic":continue

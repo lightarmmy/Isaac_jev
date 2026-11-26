@@ -79,6 +79,57 @@ class LuaModTests(unittest.TestCase):
 
     def step(self):self.lua.eval("step()")
 
+    def charge_weapon(self):
+        self.lua.execute('''function PLAYER:GetWeapon(slot)
+            if slot~=1 then return nil end
+            return {GetWeaponType=function()return 2 end,GetCharge=function()return 3 end,
+                GetMaxCharge=function()return 6 end,GetNumFired=function()return 2 end,
+                GetFireDelay=function()return 0 end,GetMaxFireDelay=function()return 10 end}
+        end''')
+
+    def test_observed_charge_and_held_state_are_recorded(self):
+        self.charge_weapon();self.lua.execute('HELD[7]=true')
+        self.step();self.step()
+        f=[m for m in self.messages() if m['type']=='frame'][-1]
+        self.assertEqual(f['player']['weapons'][0]['charge_ratio'],.5)
+        self.assertTrue(f['player']['shoot_holding']);self.assertEqual(f['weapon_schema'],1)
+
+    def test_npc_phase_offsets_and_targets_are_optional_real_observations(self):
+        self.lua.execute('''
+            NPC={Index=12,InitSeed=34,Type=20,Variant=0,SubType=0,Position={X=250,Y=280},Velocity={X=0,Y=0},
+                Size=30,EntityCollisionClass=0,GridCollisionClass=0,State=6,StateFrame=17,HitPoints=20,MaxHitPoints=30,
+                PositionOffset={X=0,Y=-40},TargetPosition={X=210,Y=280},Visible=true,FrameCount=17}
+            function NPC:ToNPC()return self end
+            function NPC:GetPlayerTarget()return PLAYER end
+            function NPC:HasEntityFlags()return false end
+            function NPC:IsDead()return false end
+            function NPC:IsVulnerableEnemy()return false end
+            function NPC:IsActiveEnemy()return true end
+            function NPC:GetSprite()return {GetAnimation=function()return 'JumpDown' end,GetFrame=function()return 17 end,
+                GetOverlayAnimation=function()return 'Glow' end,GetOverlayFrame=function()return 2 end}end
+            Isaac.GetRoomEntities=function()return {NPC}end
+        ''')
+        self.step();f=next(m for m in self.messages() if m['type']=='frame');e=f['entities'][0]
+        self.assertEqual(e['position_offset'],{'x':0,'y':-40});self.assertNotIn('sprite_offset',e)
+        self.assertEqual(e['npc_target_position'],{'x':210,'y':280})
+        self.assertEqual(e['observed_target_position'],{'x':200,'y':200})
+        self.assertEqual(e['overlay_animation'],'Glow');self.assertEqual(f['combat_schema'],3)
+
+    def test_charge_latch_survives_movement_expiry_but_is_bounded(self):
+        self.charge_weapon();self.step();self.step();self.messages()
+        self.send({'command':'set_mode','mode':'ai','request_id':'ai'})
+        n=int(self.lua.globals().FRAME)
+        self.send({'command':'action','request_id':'charged','action_id':24,'move':{'x':1,'y':0},'shoot':{'x':1,'y':0},
+            'use_active':False,'hold_frames':3,'charge_hold':True,'execution_timing':'start-relative-v1',
+            'run_id':'isaac-seed:123','room_id':'1:0:17','observation_frame':n,'valid_until_frame':n+6})
+        start=int(self.lua.globals().FRAME)
+        self.assertTrue(self.lua.eval('CALLBACKS[13](nil,PLAYER,0,5)'))
+        self.lua.globals().FRAME=start+3
+        self.assertIsNone(self.lua.eval('CALLBACKS[13](nil,PLAYER,0,1)'))
+        self.assertTrue(self.lua.eval('CALLBACKS[13](nil,PLAYER,0,5)'))
+        self.lua.globals().FRAME=start+8
+        self.assertIsNone(self.lua.eval('CALLBACKS[13](nil,PLAYER,0,5)'))
+
     def test_console_connect_and_record_commands_do_not_change_input(self):
         self.step();self.messages()
         self.lua.eval('CALLBACKS[22]')(None,'jev_connect','10.1.2.3:31203 "dummy password" root')

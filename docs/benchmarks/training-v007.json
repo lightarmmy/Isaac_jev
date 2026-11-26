@@ -1,0 +1,744 @@
+{
+  "results": {
+    "groups": [
+      {
+        "group": "s01",
+        "epochs": 30,
+        "selected_epoch": 1,
+        "trainable_parameters": 980225,
+        "validation": {
+          "samples": 3513,
+          "move_nll": 1.905465603553431,
+          "shoot_nll": 0.8308908857241879,
+          "quality_weighted_nll": 2.7075986540771027,
+          "selection_nll": 2.4674823477595633,
+          "group_weighted_nll": {
+            "ordinary": 2.7843862717468557,
+            "boss": 2.150578423772271
+          },
+          "move_accuracy": 0.28807287218901223,
+          "shoot_accuracy": 0.690293196697979,
+          "joint_accuracy": 0.2134927412467976,
+          "stay_fraction": 0.41673783091374894,
+          "idle_fraction": 0.06917164816396243,
+          "ordinal_aux_nll": 0.5369091571658704,
+          "predicted_actions": {
+            "0": 243,
+            "4": 455,
+            "19": 568,
+            "24": 140,
+            "14": 32,
+            "11": 30,
+            "1": 320,
+            "16": 67,
+            "6": 10,
+            "3": 253,
+            "10": 11,
+            "20": 83,
+            "23": 336,
+            "18": 202,
+            "8": 11,
+            "2": 193,
+            "17": 82,
+            "7": 65,
+            "22": 17,
+            "13": 15,
+            "15": 281,
+            "5": 27,
+            "21": 26,
+            "9": 45,
+            "40": 1
+          },
+          "scope": "Offline weighted imitation; no measured live survival or DPS"
+        },
+        "test": {
+          "samples": 3079,
+          "move_nll": 1.907290203767227,
+          "shoot_nll": 0.7965903509820812,
+          "quality_weighted_nll": 2.638647274040421,
+          "selection_nll": 2.4249729598570178,
+          "group_weighted_nll": {
+            "ordinary": 2.710759046248783,
+            "boss": 2.1391868734652526
+          },
+          "move_accuracy": 0.29977265345891524,
+          "shoot_accuracy": 0.7067229620006495,
+          "joint_accuracy": 0.22117570639818124,
+          "stay_fraction": 0.42578759337447225,
+          "idle_fraction": 0.10457940889899318,
+          "ordinal_aux_nll": 0.5058491097913859,
+          "predicted_actions": {
+            "3": 182,
+            "18": 417,
+            "8": 35,
+            "23": 290,
+            "1": 391,
+            "16": 102,
+            "19": 250,
+            "4": 283,
+            "24": 67,
+            "15": 170,
+            "13": 30,
+            "7": 64,
+            "22": 37,
+            "2": 133,
+            "11": 56,
+            "9": 43,
+            "21": 9,
+            "5": 30,
+            "6": 32,
+            "0": 322,
+            "17": 70,
+            "14": 13,
+            "10": 25,
+            "20": 26,
+            "12": 1,
+            "38": 1
+          },
+          "scope": "Offline weighted imitation; no measured live survival or DPS"
+        },
+        "checkpoint": "/xufanghui/isaac-jev-v007/artifacts/combat-v007/combat-v007-s01",
+        "retained_heads": 30,
+        "selection_uses_test": false,
+        "scope": "Offline training complete; gameplay comparison remains separate"
+      },
+      {
+        "group": "s02",
+        "epochs": 30,
+        "selected_epoch": 2,
+        "trainable_parameters": 744260,
+        "validation": {
+          "samples": 3513,
+          "move_nll": 1.951931044276949,
+          "shoot_nll": 0.8622077759466652,
+          "quality_weighted_nll": 2.802983776100681,
+          "selection_nll": 2.5699644072836447,
+          "group_weighted_nll": {
+            "ordinary": 2.877037086550362,
+            "boss": 2.2628917280169274
+          },
+          "move_accuracy": 0.2857956162823797,
+          "shoot_accuracy": 0.695417022487902,
+          "joint_accuracy": 0.23114147452319955,
+          "stay_fraction": 0.5138058639339596,
+          "idle_fraction": 0.15826928551095928,
+          "ordinal_aux_nll": 0.5512269023491604,
+          "predicted_actions": {
+            "20": 53,
+            "24": 105,
+            "19": 739,
+            "4": 291,
+            "9": 9,
+            "1": 454,
+            "21": 21,
+            "16": 24,
+            "6": 12,
+            "5": 6,
+            "18": 103,
+            "23": 561,
+            "15": 19,
+            "0": 556,
+            "3": 66,
+            "2": 438,
+            "11": 16,
+            "13": 4,
+            "8": 3,
+            "17": 11,
+            "14": 4,
+            "22": 12,
+            "10": 2,
+            "7": 4
+          },
+          "scope": "Offline weighted imitation; no measured live survival or DPS"
+        },
+        "test": {
+          "samples": 3079,
+          "move_nll": 1.943378253972697,
+          "shoot_nll": 0.6934141974899822,
+          "quality_weighted_nll": 2.59973672148689,
+          "selection_nll": 2.4255300621371183,
+          "group_weighted_nll": {
+            "ordinary": 2.6583846563121414,
+            "boss": 2.1926754679620952
+          },
+          "move_accuracy": 0.30561870737252356,
+          "shoot_accuracy": 0.7762260474179928,
+          "joint_accuracy": 0.268268918480026,
+          "stay_fraction": 0.4559922052614485,
+          "idle_fraction": 0.0990581357583631,
+          "ordinal_aux_nll": 0.48335947228901127,
+          "predicted_actions": {
+            "18": 231,
+            "3": 108,
+            "23": 670,
+            "1": 585,
+            "19": 379,
+            "4": 122,
+            "2": 284,
+            "0": 305,
+            "11": 9,
+            "14": 6,
+            "24": 97,
+            "6": 19,
+            "16": 43,
+            "9": 6,
+            "21": 17,
+            "17": 13,
+            "13": 41,
+            "7": 1,
+            "22": 23,
+            "20": 54,
+            "8": 24,
+            "5": 8,
+            "15": 34
+          },
+          "scope": "Offline weighted imitation; no measured live survival or DPS"
+        },
+        "checkpoint": "/xufanghui/isaac-jev-v007/artifacts/combat-v007/combat-v007-s02",
+        "retained_heads": 30,
+        "selection_uses_test": false,
+        "scope": "Offline training complete; gameplay comparison remains separate"
+      }
+    ],
+    "serial_order": [
+      "s01",
+      "s02"
+    ],
+    "selection_uses_test": false
+  },
+  "rpc_verification": {
+    "groups": [
+      {
+        "group": "s01",
+        "checkpoint": "combat-v007-s01-epoch001",
+        "fresh_prediction_rpc_matches": 32,
+        "samples": 32,
+        "head_device": "cpu",
+        "backbone": "existing warmed GPU encoder",
+        "timings": [
+          {
+            "model_ms": 73.203,
+            "gpu_encoder_rpc_ms": 71.265,
+            "head_cpu_ms": 1.938
+          },
+          {
+            "model_ms": 71.837,
+            "gpu_encoder_rpc_ms": 70.863,
+            "head_cpu_ms": 0.975
+          },
+          {
+            "model_ms": 54.003,
+            "gpu_encoder_rpc_ms": 53.157,
+            "head_cpu_ms": 0.845
+          },
+          {
+            "model_ms": 71.155,
+            "gpu_encoder_rpc_ms": 70.272,
+            "head_cpu_ms": 0.883
+          },
+          {
+            "model_ms": 71.332,
+            "gpu_encoder_rpc_ms": 70.456,
+            "head_cpu_ms": 0.876
+          },
+          {
+            "model_ms": 71.531,
+            "gpu_encoder_rpc_ms": 70.681,
+            "head_cpu_ms": 0.849
+          },
+          {
+            "model_ms": 71.469,
+            "gpu_encoder_rpc_ms": 70.636,
+            "head_cpu_ms": 0.833
+          },
+          {
+            "model_ms": 52.935,
+            "gpu_encoder_rpc_ms": 52.071,
+            "head_cpu_ms": 0.865
+          },
+          {
+            "model_ms": 70.837,
+            "gpu_encoder_rpc_ms": 69.999,
+            "head_cpu_ms": 0.838
+          },
+          {
+            "model_ms": 53.059,
+            "gpu_encoder_rpc_ms": 52.216,
+            "head_cpu_ms": 0.843
+          },
+          {
+            "model_ms": 71.008,
+            "gpu_encoder_rpc_ms": 70.162,
+            "head_cpu_ms": 0.846
+          },
+          {
+            "model_ms": 71.335,
+            "gpu_encoder_rpc_ms": 70.498,
+            "head_cpu_ms": 0.837
+          },
+          {
+            "model_ms": 71.486,
+            "gpu_encoder_rpc_ms": 70.585,
+            "head_cpu_ms": 0.901
+          },
+          {
+            "model_ms": 53.195,
+            "gpu_encoder_rpc_ms": 52.283,
+            "head_cpu_ms": 0.912
+          },
+          {
+            "model_ms": 72.332,
+            "gpu_encoder_rpc_ms": 71.418,
+            "head_cpu_ms": 0.914
+          },
+          {
+            "model_ms": 72.029,
+            "gpu_encoder_rpc_ms": 71.19,
+            "head_cpu_ms": 0.839
+          },
+          {
+            "model_ms": 53.53,
+            "gpu_encoder_rpc_ms": 52.655,
+            "head_cpu_ms": 0.876
+          },
+          {
+            "model_ms": 71.111,
+            "gpu_encoder_rpc_ms": 70.264,
+            "head_cpu_ms": 0.848
+          },
+          {
+            "model_ms": 71.362,
+            "gpu_encoder_rpc_ms": 70.464,
+            "head_cpu_ms": 0.898
+          },
+          {
+            "model_ms": 71.196,
+            "gpu_encoder_rpc_ms": 70.369,
+            "head_cpu_ms": 0.827
+          },
+          {
+            "model_ms": 71.042,
+            "gpu_encoder_rpc_ms": 70.146,
+            "head_cpu_ms": 0.897
+          },
+          {
+            "model_ms": 71.976,
+            "gpu_encoder_rpc_ms": 71.106,
+            "head_cpu_ms": 0.869
+          },
+          {
+            "model_ms": 53.779,
+            "gpu_encoder_rpc_ms": 52.939,
+            "head_cpu_ms": 0.84
+          },
+          {
+            "model_ms": 71.967,
+            "gpu_encoder_rpc_ms": 70.884,
+            "head_cpu_ms": 1.084
+          },
+          {
+            "model_ms": 53.843,
+            "gpu_encoder_rpc_ms": 52.8,
+            "head_cpu_ms": 1.043
+          },
+          {
+            "model_ms": 71.059,
+            "gpu_encoder_rpc_ms": 70.07,
+            "head_cpu_ms": 0.989
+          },
+          {
+            "model_ms": 71.905,
+            "gpu_encoder_rpc_ms": 70.9,
+            "head_cpu_ms": 1.005
+          },
+          {
+            "model_ms": 72.029,
+            "gpu_encoder_rpc_ms": 70.953,
+            "head_cpu_ms": 1.077
+          },
+          {
+            "model_ms": 72.884,
+            "gpu_encoder_rpc_ms": 71.684,
+            "head_cpu_ms": 1.2
+          },
+          {
+            "model_ms": 72.716,
+            "gpu_encoder_rpc_ms": 71.594,
+            "head_cpu_ms": 1.122
+          },
+          {
+            "model_ms": 87.616,
+            "gpu_encoder_rpc_ms": 86.668,
+            "head_cpu_ms": 0.948
+          },
+          {
+            "model_ms": 71.909,
+            "gpu_encoder_rpc_ms": 70.978,
+            "head_cpu_ms": 0.931
+          }
+        ],
+        "no_game_inputs": true,
+        "no_live_policy_switch": true,
+        "scope": "Protocol/contract/cached-action verification; not native deployment latency"
+      },
+      {
+        "group": "s02",
+        "checkpoint": "combat-v007-s02-epoch002",
+        "fresh_prediction_rpc_matches": 32,
+        "samples": 32,
+        "head_device": "cpu",
+        "backbone": "existing warmed GPU encoder",
+        "timings": [
+          {
+            "model_ms": 74.423,
+            "gpu_encoder_rpc_ms": 70.784,
+            "head_cpu_ms": 3.638
+          },
+          {
+            "model_ms": 73.208,
+            "gpu_encoder_rpc_ms": 71.297,
+            "head_cpu_ms": 1.912
+          },
+          {
+            "model_ms": 55.642,
+            "gpu_encoder_rpc_ms": 53.908,
+            "head_cpu_ms": 1.734
+          },
+          {
+            "model_ms": 73.307,
+            "gpu_encoder_rpc_ms": 71.65,
+            "head_cpu_ms": 1.656
+          },
+          {
+            "model_ms": 72.665,
+            "gpu_encoder_rpc_ms": 71.166,
+            "head_cpu_ms": 1.498
+          },
+          {
+            "model_ms": 72.46,
+            "gpu_encoder_rpc_ms": 70.983,
+            "head_cpu_ms": 1.477
+          },
+          {
+            "model_ms": 72.267,
+            "gpu_encoder_rpc_ms": 70.775,
+            "head_cpu_ms": 1.492
+          },
+          {
+            "model_ms": 53.535,
+            "gpu_encoder_rpc_ms": 52.089,
+            "head_cpu_ms": 1.446
+          },
+          {
+            "model_ms": 71.824,
+            "gpu_encoder_rpc_ms": 70.39,
+            "head_cpu_ms": 1.434
+          },
+          {
+            "model_ms": 54.954,
+            "gpu_encoder_rpc_ms": 53.517,
+            "head_cpu_ms": 1.438
+          },
+          {
+            "model_ms": 71.531,
+            "gpu_encoder_rpc_ms": 70.102,
+            "head_cpu_ms": 1.429
+          },
+          {
+            "model_ms": 71.882,
+            "gpu_encoder_rpc_ms": 70.434,
+            "head_cpu_ms": 1.448
+          },
+          {
+            "model_ms": 71.894,
+            "gpu_encoder_rpc_ms": 70.458,
+            "head_cpu_ms": 1.435
+          },
+          {
+            "model_ms": 54.1,
+            "gpu_encoder_rpc_ms": 52.656,
+            "head_cpu_ms": 1.444
+          },
+          {
+            "model_ms": 72.124,
+            "gpu_encoder_rpc_ms": 70.701,
+            "head_cpu_ms": 1.423
+          },
+          {
+            "model_ms": 71.912,
+            "gpu_encoder_rpc_ms": 70.487,
+            "head_cpu_ms": 1.425
+          },
+          {
+            "model_ms": 54.122,
+            "gpu_encoder_rpc_ms": 52.673,
+            "head_cpu_ms": 1.45
+          },
+          {
+            "model_ms": 72.28,
+            "gpu_encoder_rpc_ms": 70.848,
+            "head_cpu_ms": 1.432
+          },
+          {
+            "model_ms": 72.282,
+            "gpu_encoder_rpc_ms": 70.836,
+            "head_cpu_ms": 1.446
+          },
+          {
+            "model_ms": 72.617,
+            "gpu_encoder_rpc_ms": 71.093,
+            "head_cpu_ms": 1.524
+          },
+          {
+            "model_ms": 71.825,
+            "gpu_encoder_rpc_ms": 70.398,
+            "head_cpu_ms": 1.427
+          },
+          {
+            "model_ms": 72.601,
+            "gpu_encoder_rpc_ms": 71.172,
+            "head_cpu_ms": 1.429
+          },
+          {
+            "model_ms": 54.385,
+            "gpu_encoder_rpc_ms": 52.959,
+            "head_cpu_ms": 1.426
+          },
+          {
+            "model_ms": 71.789,
+            "gpu_encoder_rpc_ms": 70.354,
+            "head_cpu_ms": 1.435
+          },
+          {
+            "model_ms": 53.873,
+            "gpu_encoder_rpc_ms": 52.45,
+            "head_cpu_ms": 1.422
+          },
+          {
+            "model_ms": 71.612,
+            "gpu_encoder_rpc_ms": 70.145,
+            "head_cpu_ms": 1.467
+          },
+          {
+            "model_ms": 72.424,
+            "gpu_encoder_rpc_ms": 70.974,
+            "head_cpu_ms": 1.449
+          },
+          {
+            "model_ms": 72.702,
+            "gpu_encoder_rpc_ms": 71.27,
+            "head_cpu_ms": 1.432
+          },
+          {
+            "model_ms": 72.509,
+            "gpu_encoder_rpc_ms": 71.031,
+            "head_cpu_ms": 1.478
+          },
+          {
+            "model_ms": 72.297,
+            "gpu_encoder_rpc_ms": 70.86,
+            "head_cpu_ms": 1.438
+          },
+          {
+            "model_ms": 87.532,
+            "gpu_encoder_rpc_ms": 86.094,
+            "head_cpu_ms": 1.438
+          },
+          {
+            "model_ms": 72.23,
+            "gpu_encoder_rpc_ms": 70.806,
+            "head_cpu_ms": 1.424
+          }
+        ],
+        "no_game_inputs": true,
+        "no_live_policy_switch": true,
+        "scope": "Protocol/contract/cached-action verification; not native deployment latency"
+      }
+    ]
+  },
+  "dataset": {
+    "counts": {
+      "train": 14075,
+      "validation": 3513,
+      "test": 3079
+    },
+    "samples": 20667,
+    "source_sha256": "a4c5f0111714a25e78357923365c79ab04b8caf768a42c56176ac4789a9ddc9e",
+    "samples_sha256": "1b08b3c9aa2cffcca453702ebff26d92343118dbce8d1ed1568099cbda1714ed",
+    "source_sessions": [
+      "20261123-205213-073076900-c3740629",
+      "20261123-215658-706154200-f9ca9510",
+      "20261124-010234-249231900-2ff0ff12",
+      "20261124-010846-507108800-95cd8de2",
+      "20261124-011051-540867700-16df4972",
+      "20261124-011612-721392300-7caba842",
+      "20261124-011705-872448900-28926aca",
+      "20261124-120047-502646800-97c4a38b",
+      "20261124-120915-679105500-8e052022",
+      "20261124-125142-695693500-878d43d3",
+      "20261124-125420-826894800-d5f28d16",
+      "20261124-125604-619867500-b92f272c",
+      "20261124-125649-116059100-b238c324",
+      "20261124-125733-738958200-b7f2c2ed",
+      "20261124-125821-540875600-9e2f4c66",
+      "20261124-125905-866747800-d8242492",
+      "20261124-125947-498978900-ad77e2c8",
+      "20261124-130312-096267600-f681e766",
+      "20261124-130349-363187000-28135ca7",
+      "20261124-130433-440290400-e40985ed",
+      "20261124-142828-512581700-d63f6db6",
+      "20261124-142858-634037100-99518841",
+      "20261124-142904-252078500-38c63613",
+      "20261124-145701-140171100-0baade34",
+      "20261124-152500-779336400-8c95346d",
+      "20261124-162220-814576200-04ff16d2",
+      "20261124-163449-579227300-e7176b14",
+      "20261124-184632-328981100-c263d6fd",
+      "20261124-192115-647969800-6a96a6ad",
+      "20261124-194853-281447600-71f1c57a",
+      "20261124-195115-419860400-4c583438",
+      "20261124-200048-352904500-e72d11f8",
+      "20261124-201904-316754300-31fdf5d3",
+      "20261124-203415-436266500-0c36af7b",
+      "20261124-204454-304176700-18826597",
+      "20261124-204459-288863500-fa506ee7",
+      "20261124-210440-695964400-98eff7fa",
+      "20261124-210444-587616000-0b73509f",
+      "20261124-210447-662667400-502f83e3"
+    ],
+    "run_splits": {
+      "isaac-seed:1005774414": "train",
+      "isaac-seed:1121372146": "train",
+      "isaac-seed:1374315950": "train",
+      "isaac-seed:1505762647": "train",
+      "isaac-seed:1548640240": "train",
+      "isaac-seed:1625335597": "train",
+      "isaac-seed:1763174436": "train",
+      "isaac-seed:2171918557": "validation",
+      "isaac-seed:2193616746": "validation",
+      "isaac-seed:2215621234": "test",
+      "isaac-seed:222102831": "train",
+      "isaac-seed:2305618096": "train",
+      "isaac-seed:2312680804": "validation",
+      "isaac-seed:2319184127": "train",
+      "isaac-seed:2411599838": "train",
+      "isaac-seed:2587423712": "test",
+      "isaac-seed:2769527182": "train",
+      "isaac-seed:2813779435": "train",
+      "isaac-seed:2916260866": "train",
+      "isaac-seed:3171523098": "train",
+      "isaac-seed:3349631019": "test",
+      "isaac-seed:3673404340": "train",
+      "isaac-seed:3714475343": "train",
+      "isaac-seed:381615414": "train",
+      "isaac-seed:3894015599": "train",
+      "isaac-seed:3962258900": "train",
+      "isaac-seed:4125120059": "train",
+      "isaac-seed:4145592489": "train",
+      "isaac-seed:65133883": "train",
+      "isaac-seed:660850608": "validation",
+      "isaac-seed:906996481": "train",
+      "isaac-seed:942154422": "train"
+    },
+    "numeric_size": 930,
+    "quality_axes": [
+      "survival",
+      "projectile_evasion",
+      "contact_evasion",
+      "attack_access",
+      "progress",
+      "efficiency",
+      "robustness"
+    ],
+    "quality_grade_counts": {
+      "survival": {
+        "4": 19118,
+        "1": 502,
+        "-1": 1014,
+        "0": 33
+      },
+      "projectile_evasion": {
+        "-1": 20395,
+        "2": 15,
+        "4": 169,
+        "3": 75,
+        "1": 13
+      },
+      "contact_evasion": {
+        "-1": 20127,
+        "1": 50,
+        "3": 188,
+        "2": 47,
+        "4": 255
+      },
+      "attack_access": {
+        "-1": 8212,
+        "3": 11500,
+        "2": 767,
+        "1": 188
+      },
+      "progress": {
+        "-1": 3563,
+        "3": 11090,
+        "1": 5509,
+        "4": 505
+      },
+      "efficiency": {
+        "-1": 3748,
+        "2": 3447,
+        "1": 5952,
+        "3": 3043,
+        "4": 3075,
+        "0": 1402
+      },
+      "robustness": {
+        "4": 8759,
+        "1": 10118,
+        "2": 241,
+        "-1": 1549
+      }
+    },
+    "max_text_characters": 7428,
+    "action_lag_frames": 4,
+    "fixed_objective": "safe_progress",
+    "future_evidence_scope": "quality and weights only; prompts contain current and past observations",
+    "all_45_options_retained": true,
+    "changed_source_labels": false,
+    "elapsed_seconds": 753.93,
+    "quality_refinements": {
+      "idle_move_downweighted": 188,
+      "charge_wait_protected": 149
+    },
+    "feature_input_sha256": "80b8d3b9efbfea83d57eeac931ac54e2feece7d4d0f2c2d2d08ebee266109f63",
+    "entity_labels": "local_aliases"
+  },
+  "token_lengths": {
+    "samples": 20667,
+    "min": 1377,
+    "max": 2896,
+    "over_budget": 0,
+    "longest_rows": [
+      20588,
+      11395,
+      11396,
+      10333,
+      11394,
+      11392,
+      20590,
+      20591,
+      11393,
+      20587
+    ]
+  },
+  "finalization": {
+    "stage": "complete",
+    "verified_epoch_heads": 60,
+    "verified_default_heads": 2,
+    "archive": "/xufanghui/isaac-jev-v007/.local/v007-results.zip",
+    "bytes": 205509569,
+    "sha256": "5922996c586185b6d33aa05a01c5a247bfbb5bc425a12bd6849a41ed7ea41d04",
+    "completed_at": 1795604973.8815727
+  },
+  "local_manifest_checks": 62,
+  "scope": "Offline metrics and read-only RPC verification; gameplay not tested."
+}

@@ -47,8 +47,14 @@ def previous_action_label(row):
     values=dict(zip(row["numeric_names"],row["numeric"]))
     return max(range(9),key=lambda i:values[f"previous_move_{i}"])*5+max(range(5),key=lambda i:values[f"previous_shoot_{i}"])
 
-def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,outcome_window_frames=30,exclude_active_items=False,action_lag_frames=1,control_context=True):
-    profile=contract(action_lag_frames,control_context)
+def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,outcome_window_frames=30,exclude_active_items=False,action_lag_frames=1,control_context=True,feature_profile=None):
+    preparation_started=time.monotonic()
+    def report_stage(stage):
+        print(f"Dataset preparation: {stage}; elapsed={time.monotonic()-preparation_started:.1f}s",flush=True)
+    profile=contract(action_lag_frames,control_context,feature_profile)
+    extended=feature_profile=='combat-build-terrain-weapons-v5'
+    phase=lambda f:combat_active(f,extended)
+    def messages():return iter_messages(recordings,include_diagnostics=False,include_session=True,only_closed=True)
     if action_lag_frames!=1 and not exclude_active_items:raise ValueError("Delayed action labels currently require active items disabled")
     if stride<1:raise ValueError("stride must be positive")
     if not 1<=outcome_window_frames<=150:raise ValueError("Outcome window must be 1..150 frames")
@@ -60,7 +66,8 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
     # Item use can occur before MC_PRE_UPDATE in the same logic frame. A
     # complete event pass also handles events transported after their frame.
     uses=set();available_runs=set();source_sessions=set()
-    for message in iter_messages(recordings,include_diagnostics=False,include_session=True):
+    report_stage('indexing recordings')
+    for message in messages():
         if message.get("type")=="frame":
             available_runs.add(message["run_id"])
             source_sessions.add(Path(message["_recording_session"]).parent.name)
@@ -68,15 +75,19 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
             uses.add((*event_key(message),message.get("item_id")))
     missing=set(split_overrides)-available_runs
     if missing:raise ValueError(f"Split overrides reference unrecorded runs: {sorted(missing)}")
-    callbacks=collect_player_damage(iter_messages(recordings,include_diagnostics=False,include_session=True))
-    bomb_rooms,bomb_triggers=find_combat_bomb_rooms(iter_messages(recordings,include_diagnostics=False,include_session=True))
-    active_rooms,active_inputs=(find_active_item_rooms(iter_messages(recordings,include_diagnostics=False,include_session=True),
+    report_stage(f'indexed {len(source_sessions)} sessions; collecting damage events')
+    callbacks=collect_player_damage(messages())
+    report_stage('identifying combat bomb rooms')
+    bomb_rooms,bomb_triggers=find_combat_bomb_rooms(messages(),phase)
+    report_stage('identifying active-item rooms')
+    active_rooms,active_inputs=(find_active_item_rooms(messages(),
                                                     {key[:3] for key in uses}) if exclude_active_items else (set(),0))
     unaligned=0;active_attempts=0;outcome_counts={split:Counter() for split in counts};reasons=Counter();damage_counts=Counter()
     excluded_bomb_pairs=0
     excluded_active_pairs=0
+    report_stage('writing combat samples')
     with (output/"samples.jsonl").open("w",encoding="utf-8") as out:
-        for segment in segment_frames(iter_messages(recordings,include_diagnostics=False,include_session=True)):
+        for segment in segment_frames(messages()):
             unaligned+=1
             evidence=damage_evidence(segment,callbacks)
             segment_split=split_overrides.get(segment[0]["run_id"],split_for_run(segment[0]["run_id"]))
@@ -91,17 +102,18 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
                 observation,frame=segment[index],segment[index+action_lag_frames]
                 if frame["player"].get("dead") or observation["player"].get("dead"):continue
                 if not observation["player"].get("controls_enabled",True):continue
-                if not all(combat_active(f) and f["player"].get("controls_enabled",True) and not f["player"].get("dead")
+                if not all(phase(f) and f["player"].get("controls_enabled",True) and not f["player"].get("dead")
                            for f in segment[index:index+action_lag_frames+1]):continue
                 action,attempt=label_from_input(frame["human_input"])
                 item=observation["player"].get("active",{})
                 active=bool(attempt and item.get("ready") and (*event_key(frame),item.get("id")) in uses)
                 active_attempts+=int(attempt)
                 # Keep rare active-item edges even when movement samples are subsampled.
-                if frame["game_frame"]%stride and not active:continue
-                outcome=label_outcome(segment,index,evidence,outcome_window_frames,action_lag_frames)
+                release=extended and action%5==0 and controls(observation)[0]%5!=0
+                if frame["game_frame"]%stride and not active and not release:continue
+                outcome=label_outcome(segment,index,evidence,outcome_window_frames,action_lag_frames,phase if extended else None)
                 past=segment[max(0,index-max(HISTORY_OFFSETS)):index]
-                prompt,numeric,names=policy_observation(observation,past,condition=outcome["label"],include_active=not exclude_active_items,include_controls=control_context)
+                prompt,numeric,names=policy_observation(observation,past,condition=outcome["label"],include_active=not exclude_active_items,include_controls=control_context,feature_profile=feature_profile)
                 deployment_prompt=prompt.rsplit("\nDesired outcome condition:",1)[0]+"\nDesired outcome condition: "+DEPLOYMENT_CONDITION+".\nChoose combat controls."
                 deployment_numeric=list(numeric)
                 for label in CONDITIONS:deployment_numeric[names.index(f"condition_{label}")]=float(label==DEPLOYMENT_CONDITION)
@@ -113,7 +125,11 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
                      "action_label":action,"move_label":action//5,"shoot_label":action%5,
                      "active_label":active,"active_attempt":attempt,"active_item_id":item.get("id",0),"outcome":outcome}
                 row["previous_action_label"]=controls(observation)[0] # Evaluation/training weights only, never policy input.
+                if extended:
+                    from .weapons import weapon_state
+                    row['weapon_family']=weapon_state(observation)['name'];row['weapon_charge_known']=weapon_state(observation)['charge_known'];row['release_transition']=release
                 out.write(json.dumps(row,ensure_ascii=False,separators=(",",":"),allow_nan=False)+"\n")
+                if sum(counts.values())%1024==0:report_stage(f'wrote {sum(counts.values())} samples')
     summary={**profile,"counts":counts,"runs":{k:len(v) for k,v in runs.items()},"active_triggers":active_count,
              "split_rule":"whole-run explicit overrides; otherwise sha256(run_id) modulo 10: 0=test, 1=validation, 2..9=train","stride":stride,
              "split_overrides":split_overrides,"run_splits":{run:split_overrides.get(run,split_for_run(run)) for run in sorted(available_runs)},
@@ -121,7 +137,7 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
              "outcome_window_frames":outcome_window_frames,"outcome_counts":{k:dict(v) for k,v in outcome_counts.items()},
              "confirmed_damage_events_by_split":dict(damage_counts),
              "outcome_reasons":dict(reasons),"outcome_warning":"Observed trajectory association, not causal action correctness",
-             "training_phase":TRAINING_PHASE,"unsupported_action_filter":UNSUPPORTED_ACTION_FILTER,"source_sessions":sorted(source_sessions),
+             "training_phase":profile.get('training_phase',TRAINING_PHASE),"unsupported_action_filter":UNSUPPORTED_ACTION_FILTER,"source_sessions":sorted(source_sessions),
              "excluded_combat_bomb_rooms":[{"run_id":run,"room_id":room} for run,room in sorted(bomb_rooms)],
              "combat_bomb_triggers":bomb_triggers,"combat_bomb_pairs_excluded_before_stride":excluded_bomb_pairs}
     summary.update({"exclude_active_items":exclude_active_items,"active_context":not exclude_active_items,
@@ -130,6 +146,7 @@ def prepare_dataset(recordings:Path,output:Path,stride=1,split_overrides=None,ou
                     "active_item_attempts_filtered":active_inputs,"active_pairs_excluded_before_stride":excluded_active_pairs})
     (output/"dataset.json").write_text(json.dumps(summary,indent=2),encoding="utf-8")
     print(json.dumps(summary,ensure_ascii=False,indent=2))
+    report_stage(f'complete: {sum(counts.values())} samples')
     if not counts["train"] or not counts["validation"]:
         print("Collect more independent runs: supervised model selection needs both train and validation groups.")
 
@@ -158,7 +175,8 @@ def train(args):
     from torch.utils.data import DataLoader,TensorDataset
     dataset=Path(args.dataset);output=Path(args.output)
     meta=json.loads((dataset/"dataset.json").read_text(encoding="utf-8"))
-    if meta.get("training_phase")!=TRAINING_PHASE:raise ValueError("Rebuild the dataset for hostile-enemy/projectile combat phases")
+    expected_phase='enemy-projectile-imminent-hazard-v2' if meta.get('feature_version')=='combat-build-terrain-weapons-v5' else TRAINING_PHASE
+    if meta.get("training_phase")!=expected_phase:raise ValueError("Rebuild the dataset for the selected combat phases")
     if meta.get("unsupported_action_filter")!=UNSUPPORTED_ACTION_FILTER:raise ValueError("Rebuild the dataset to exclude combat rooms with human bomb input")
     profile=contract_for(meta)
     if any(meta.get(k)!=v for k,v in profile.items()):raise ValueError("Dataset feature/rule contract differs from the current code")
@@ -262,6 +280,12 @@ def train(args):
         metrics=evaluate(positive_val or val_ids,deployment=bool(positive_val))
         train_metrics=evaluate(train_ids)
         history.append({"epoch":epoch+1,"train":train_metrics,"validation_selection":metrics})
+        epoch_dir=output/"head_checkpoints"
+        epoch_dir.mkdir(exist_ok=True)
+        epoch_state={k:v.detach().cpu().contiguous() for k,v in model.state_dict().items()}
+        save_file(epoch_state,str(epoch_dir/f"epoch-{epoch+1:03d}.safetensors"))
+        save_file(epoch_state,str(output/"last_head.safetensors"))
+        (epoch_dir/"index.json").write_text(json.dumps({"retention":"all-epochs","epochs":history},indent=2),encoding="utf-8")
         print(f"epoch {epoch+1}: train={train_metrics}; validation={metrics}",flush=True)
         if metrics["action_nll"]<best:
             best=metrics["action_nll"]
@@ -279,7 +303,7 @@ def train(args):
             "artifact_purpose":"limited-data-imitation-training",
             "transition_loss_weights":{"move":move_boost,"shoot":shoot_boost},
             "feature_padding_multiple":feature_pad,
-            "training_phase":TRAINING_PHASE,
+            "training_phase":meta['training_phase'],
             "unsupported_action_filter":UNSUPPORTED_ACTION_FILTER,
             "outcome_window_frames":meta["outcome_window_frames"],"training_conditions":list(CONDITIONS),
             "model_selection":"positive-validation-joint-nll" if positive_val else "conditional-validation-joint-nll-no-positive-validation",
@@ -289,6 +313,7 @@ def train(args):
             "dataset_sha256":hashlib.sha256((dataset/"samples.jsonl").read_bytes()).hexdigest(),
             "early_stopping":{"maximum_epochs":args.epochs,"completed_epochs":len(history),"best_epoch":best_epoch,
                               "patience":patience,"min_delta":min_delta},
+            "checkpoint_retention":"all-epochs","checkpoint_epoch":best_epoch,
             "active_enable_min_positives":5,"active_enable_min_positive_runs":2,
             "active_item_ids":sorted({rows[i]["active_item_id"] for i in train_ids if rows[i]["active_label"]}),
             "numeric_names":rows[0]["numeric_names"]}
@@ -297,6 +322,9 @@ def train(args):
     (output/"action_map.json").write_text(json.dumps(action_map(),indent=2),encoding="utf-8")
     def split_evaluation(ids):
         return {"conditioned_imitation":evaluate(ids),"fixed_positive_all":evaluate(ids,deployment=True),
+                'by_weapon_family':{family:evaluate([i for i in ids if rows[i].get('weapon_family','tears')==family],deployment=True) for family in sorted({rows[i].get('weapon_family','tears') for i in ids})},
+                'charge_known_samples':sum(rows[i].get('weapon_charge_known',False) for i in ids),
+                'release_transitions':evaluate([i for i in ids if rows[i].get('release_transition')],deployment=True),
                 "fixed_positive_on_observed_positive":evaluate([i for i in ids if rows[i]["outcome"]["label"]==DEPLOYMENT_CONDITION],deployment=True),
                 "by_observed_outcome":{label:evaluate([i for i in ids if rows[i]["outcome"]["label"]==label]) for label in CONDITIONS},
                 "warning":"Matching negative demonstrations under positive is not a deployment objective; offline agreement is not live safety"}
@@ -312,7 +340,7 @@ async def infer(args):
     startup_timeout=getattr(args,"startup_timeout",600)
     if startup_timeout<=0:raise ValueError("startup_timeout must be positive")
     torch,np,_,load_file=_dependencies()
-    from .model import FrozenQwen,CombatHead
+    from .model import FrozenQwen,head_from_config,decode_actions
     root=Path(args.checkpoint)
     cfg=json.loads((root/"policy_config.json").read_text(encoding="utf-8"))
     if any(cfg.get(k)!=v for k,v in contract_for(cfg).items()):raise ValueError("Checkpoint rules/features differ from this runtime")
@@ -321,20 +349,24 @@ async def infer(args):
         if (root/file).resolve().parent!=root.resolve():raise ValueError("Invalid manifest path")
         if hashlib.sha256((root/file).read_bytes()).hexdigest()!=digest:raise ValueError(f"Checksum failed: {file}")
     encoder=FrozenQwen(cfg["model"],cfg["revision"],args.device,cfg["dtype"],cfg["max_length"])
-    head=CombatHead(cfg["embedding_size"],cfg["numeric_size"],cfg["head_hidden_size"],active_enabled=cfg.get("active_head_present",True)).to(args.device)
+    head=head_from_config(cfg).to(args.device)
     head.load_state_dict(load_file(str(root/"head.safetensors")));head.eval()
     norm=json.loads((root/"normalization.json").read_text(encoding="utf-8"))
     mean,std=np.asarray(norm["mean"]),np.asarray(norm["std"])
     # Warm up before taking control; the first kernel invocation must not delay a live AI action.
     from .mock import sample_frame
-    encoder.encode([policy_observation(sample_frame(),include_active=cfg.get("active_context",True),include_controls=cfg.get("control_context",True))[0]])
+    from .features import extended_profile
+    feature_profile=cfg.get('feature_version') if extended_profile(cfg.get('feature_version')) else None
+    encoder.encode([policy_observation(sample_frame(),condition=cfg['deployment_condition'],include_active=cfg.get("active_context",True),include_controls=cfg.get("control_context",True),feature_profile=feature_profile)[0]])
     print("Policy ready: unpause the game; the requested mode starts on a fresh frame.",flush=True)
     previous=None;running_since=None;waiting_since=time.monotonic();mode_requested=False
     try:
         while True:
             if running_since is not None and getattr(args,"max_seconds",None) is not None and time.monotonic()-running_since>=args.max_seconds:
                 print("Timed inference check completed.",flush=True);break
-            reply=await request_control({"command":"get_frame","include_history":True},port=args.port);frame=reply.get("frame")
+            request={"command":"get_frame","include_history":True}
+            if cfg.get('feature_version', '').startswith('combat-semantic-v7-'):request['include_semantic_history']=True
+            reply=await request_control(request,port=args.port);frame=reply.get("frame")
             if not reply["status"].get("connected"):raise RuntimeError("Isaac disconnected")
             if not mode_requested:
                 age=reply["status"].get("last_frame_age_ms")
@@ -357,12 +389,13 @@ async def infer(args):
             if frame["player"].get("dead") or (not combat_active(frame) and args.mode=="ai"):
                 await asyncio.sleep(0.05);continue
             if "policy_history" not in reply:raise RuntimeError("Restart the bridge to enable v3 short-term history")
-            prompt,numeric,names=policy_observation(frame,condition=cfg["deployment_condition"],history_facts=reply["policy_history"],include_active=cfg.get("active_context",True),include_controls=cfg.get("control_context",True))
+            prompt,numeric,names=policy_observation(frame,condition=cfg["deployment_condition"],history_facts=reply['semantic_history'] if cfg.get('feature_version', '').startswith('combat-semantic-v7-') else reply['policy_history'],include_active=cfg.get("active_context",True),include_controls=cfg.get("control_context",True),feature_profile=feature_profile)
             if names!=cfg["numeric_names"]:raise ValueError("numeric feature order mismatch")
             start=time.perf_counter()
             with torch.no_grad():
                 move_logits,shoot_logits,active_logits=head(encoder.encode([prompt]),torch.tensor((np.asarray(numeric)-mean)/std,dtype=torch.float32,device=args.device).unsqueeze(0))
-                move_id=move_logits.argmax(-1).item();shoot_id=shoot_logits.argmax(-1).item()
+                decoded_move,decoded_shoot=decode_actions(head,move_logits,shoot_logits)
+                move_id=decoded_move.item();shoot_id=decoded_shoot.item()
                 active_probability=active_logits.sigmoid().item()
             active=frame["player"].get("active",{})
             use=bool(cfg["active_head_trained"] and active.get("ready") and active.get("id") in cfg["active_item_ids"] and active_probability>=cfg["active_threshold"])

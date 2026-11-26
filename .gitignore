@@ -1,5 +1,8 @@
 .venv/
 .local/
+.cache/
+.dsh-tmp/
+/docs/CHAT_RECOVERY.md
 .env
 __pycache__/
 *.py[cod]
@@ -16,3 +19,6 @@ skills/isaac-play/scripts/vendor/
 skills/isaac-play/connection.json
 skills/isaac-play/manifest.json
 skills/isaac-play/assets/isaac_jev_bridge/
+/reports/midterm/assets/demo.mp4
+/reports/midterm/midterm.en.html
+/reports/midterm/midterm.zh-CN.html

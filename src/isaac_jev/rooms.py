@@ -7,18 +7,24 @@ from .recording import iter_messages
 TRAINING_PHASE = "hostile-enemy-or-projectile-pair-v1"
 
 
-def combat_state(frame):
+def combat_state(frame,extended=False):
     entities = frame.get("entities", [])
     hostile = [e for e in entities if not e.get("friendly") and not e.get("dead")]
     enemies = sum(e.get("kind") == "enemy" and e.get("active_enemy") is not False for e in hostile)
     projectiles = sum(e.get("kind") == "projectile" for e in hostile)
-    return {"phase": "combat" if enemies or projectiles else "planning",
-            "next_controller": "combat_policy" if enemies or projectiles else "planner",
+    if extended:
+        from .hazards import imminent_hazard
+        imminent=imminent_hazard(frame)
+        enemies+=sum(e.get('kind')=='enemy' and bool(e.get('spawn_threat')) and e.get('active_enemy') is False for e in hostile)
+    else:imminent=False
+    return {"phase": "combat" if enemies or projectiles or imminent else "planning",
+            "next_controller": "combat_policy" if enemies or projectiles or imminent else "planner",
+            'imminent_hazard':imminent,
             "hostile_enemy_count": enemies, "hostile_projectile_count": projectiles}
 
 
-def combat_active(frame):
-    return combat_state(frame)["phase"] == "combat"
+def combat_active(frame,extended=False):
+    return combat_state(frame,extended)["phase"] == "combat"
 
 
 class RoomTimeline:

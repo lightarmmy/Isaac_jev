@@ -4,7 +4,7 @@ import json
 import time
 from .actions import Action
 from .bridge import request_control
-from .features import contract_for, policy_observation
+from .features import contract_for, policy_observation,extended_profile
 from .protocol import MAX_MESSAGE_BYTES
 from .rooms import combat_active
 
@@ -94,7 +94,11 @@ async def remote_infer(args):
         while True:
             if running_since is not None and args.max_seconds is not None and time.monotonic()-running_since>=args.max_seconds:
                 print("Timed inference completed.",flush=True);break
-            reply=await request_control({"command":"get_frame","include_history":True},port=args.port)
+            request={"command":"get_frame","include_history":True}
+            if cfg.get('feature_version', '').startswith('combat-semantic-v7-'):request['include_semantic_history']=True
+            if cfg.get('feature_version','').startswith('combat-feedback-v9-'):request['include_feedback_history']=True
+            if cfg.get('feature_version','').startswith('combat-tactical-v10-'):request['include_tactical_history']=True
+            reply=await request_control(request,port=args.port)
             status=reply["status"];frame=reply.get("frame");age=status.get("last_frame_age_ms")
             if not mode_requested:
                 if status.get("connected") and frame and age is not None and age<100:
@@ -121,12 +125,12 @@ async def remote_infer(args):
                 await asyncio.sleep(0.01);continue
             previous=key
             # Room traversal/buttons belong to the future planner, even in shadow mode.
-            if frame["player"].get("dead") or not combat_active(frame):
+            if frame["player"].get("dead") or not combat_active(frame,extended_profile(cfg.get('feature_version'))):
                 await asyncio.sleep(0.02);continue
             if "policy_history" not in reply:raise RuntimeError("Bridge needs v3 history support")
             started=time.perf_counter()
             prompt,numeric,names=policy_observation(frame,condition=cfg["deployment_condition"],
-                history_facts=reply["policy_history"],include_active=False,include_controls=cfg.get("control_context",True))
+                history_facts=reply['tactical_history'] if cfg.get('feature_version','').startswith('combat-tactical-v10-') else reply['feedback_history'] if cfg.get('feature_version','').startswith('combat-feedback-v9-') else reply['semantic_history'] if cfg.get('feature_version', '').startswith('combat-semantic-v7-') else reply['policy_history'],include_active=False,include_controls=cfg.get("control_context",True),feature_profile=cfg.get('feature_version') if extended_profile(cfg.get('feature_version')) else None)
             if names!=cfg["numeric_names"]:raise ValueError("Numeric feature order mismatch")
             observation={"run_id":frame["run_id"],"room_id":frame["room"]["id"],"game_frame":frame["game_frame"]}
             prediction=await client.request({"command":"predict","prompt":prompt,"numeric":numeric,

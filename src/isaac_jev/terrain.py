@@ -106,3 +106,57 @@ def terrain_context(frame):
         "local_occupancy_9x9":occupancy,"directions":directions,
         "nearby_obstacles":[{"kind":o.kind,"dx":round(o.center[0]-pos[0],1),"dy":round(o.center[1]-pos[1],1),"expanded_half_size":list(o.extent)} for o in nearby],
         "limitations":"Static geometry approximation. Does not model moving enemies, projectile occlusion, special weapons or a complete physics rollout."}
+
+def combat_terrain(frame):
+    """Whole native room mask plus player-relative geometry, including L-room voids."""
+    pos=xy(frame['player']['position']);rx,ry=player_radius(frame);room=frame['room']
+    cells=room.get('navigation_cells',[]);width=room.get('grid_width',0)
+    grids={g.get('index'):g for g in room.get('grid',[])};mask={};points={}
+    symbols={'wall':'W','pit':'P','door':'D','spikes':'S','fire':'F','tnt':'T','poop':'O'}
+    for c in cells:
+        if len(c)<3 or not width:continue
+        index=c[0];g=grids.get(index,{})
+        outside=len(c)>4 and not c[4];collision=c[3] if len(c)>3 else g.get('collision',0)
+        symbol='W' if outside else symbols.get(g.get('kind'),'X' if collision else '.')
+        if not outside and collision==1:symbol='P'
+        mask[index]=symbol;points[index]=(c[1],c[2])
+    obstacles=static_obstacles(frame,padding=0)
+    obstacles.extend(Obstacle(points[i],(20+rx,20+ry),'room_wall') for i,s in mask.items() if s=='W' and not any(g.get('index')==i and g.get('collision') for g in room.get('grid',[])))
+    # Only colliders whose bounds intersect a query's reachable box can affect it.
+    # Keep the full set for the room map and nearest-obstacle output.
+    def intersects_reach(obstacle,reach):
+        ex,ey=obstacle.extent
+        if obstacle.shape=='circle':ey=ex
+        return abs(obstacle.center[0]-pos[0])<=reach+ex and abs(obstacle.center[1]-pos[1])<=reach+ey
+    local_obstacles=[o for o in obstacles if intersects_reach(o,120)]
+    direction_obstacles=[o for o in obstacles if intersects_reach(o,80)]
+    tl,br=xy(room['top_left']),xy(room['bottom_right'])
+    def blocked(point):
+        return not(tl[0]+rx<=point[0]<=br[0]-rx and tl[1]+ry<=point[1]<=br[1]-ry) or any(o.gap(point)<0 for o in local_obstacles)
+    local=[[int(blocked((pos[0]+x*40,pos[1]+y*40))) for x in range(-3,4)] for y in range(-3,4)]
+    directions=[]
+    def boundary_gap(point):return min(point[0]-tl[0]-rx,br[0]-rx-point[0],point[1]-tl[1]-ry,br[1]-ry-point[1])
+    for name,(dx,dy) in zip(MOVE_NAMES[1:],MOVES[1:]):
+        length=math.hypot(dx,dy);unit=(dx/length,dy/length)
+        clearance=0
+        for step in range(1,41):
+            point=(pos[0]+unit[0]*step*2,pos[1]+unit[1]*step*2)
+            outside=boundary_gap(point)<0 and boundary_gap(point)<=boundary_gap(pos)
+            if outside or any(o.blocks(pos,point) for o in direction_obstacles):break
+            clearance=step*2
+        directions.append({'move':name,'clearance_px':clearance,'blocked_within_12px':clearance<12})
+    rows=[]
+    for r in range(max(mask,default=-1)//max(1,width)+1):
+        row=[]
+        for c in range(width):
+            symbol=mask.get(r*width+c,'?')
+            if row and row[-1][0]==symbol:row[-1][1]+=1
+            else:row.append([symbol,1])
+        rows.append(row)
+    origin=points.get(0,tl)
+    nearby=sorted(obstacles,key=lambda o:math.dist(o.center,pos))[:12]
+    return {'shape':room.get('shape'),'cell_px':40,'grid_width':width,'map_origin_rel':[round(origin[0]-pos[0],1),round(origin[1]-pos[1],1)],
+        'mask_rows_rle':rows,'legend':'W=wall/void X=obstacle P=pit D=door S=spikes F=fire T=TNT O=poop .=floor ?=unknown',
+        'mask_known':bool(mask) and all(len(c)>4 for c in cells),'player_radius':[rx,ry],
+        'local_pitch_px':40,'local_occupancy_7x7':local,'directions':directions,
+        'nearby_obstacles':[[o.kind,round(o.center[0]-pos[0],1),round(o.center[1]-pos[1],1),*o.extent] for o in nearby]}

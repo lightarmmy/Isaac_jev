@@ -1,0 +1,572 @@
+{
+  "preview_version": "terrablind-transfer-offline-preview-v1",
+  "instructions": "Survive while making useful progress against enemies. Compare immediate danger, escape room and useful attack access together. When attack access is poor, compare repositioning opportunities; approaching an enemy is useful only when it improves attack access without entering contact danger. Holding a safe effective firing position or waiting for a required charge can be reasonable. Interpret geometric obstructions using the current attack capabilities. Unknown mechanisms stay unknown. Movement and shooting may occur together. Estimates are not confirmed future hits.",
+  "state": {
+    "units": "Positions/clearance in pixels, dx right positive, dy down positive; velocities pixels per 30Hz logic frame.",
+    "player": {
+      "vx": 0,
+      "vy": 0,
+      "health": {
+        "max_red": 6,
+        "rotten": 0,
+        "black_mask": 0,
+        "soul": 0,
+        "red": 1,
+        "bone": 0
+      },
+      "stats": {
+        "move_speed": 1,
+        "max_fire_delay": 10,
+        "tear_flags": {
+          "high_hex": "0000000000000000",
+          "encoding": "bitset128",
+          "low_hex": "0000000000000000"
+        },
+        "tear_height": -23.75,
+        "damage": 3.5,
+        "shot_speed": 1,
+        "luck": 0,
+        "tear_range": 260
+      },
+      "can_fly": false
+    },
+    "capabilities": {
+      "weapon": {
+        "type": 1,
+        "name": "tears",
+        "source": "observed",
+        "trigger": "continuous",
+        "charge": 0.0,
+        "max_charge": 0.0,
+        "charge_ratio": null,
+        "charge_known": false,
+        "num_fired": 81,
+        "fire_delay": 7.0,
+        "modifiers": 0,
+        "shoot_direction": {
+          "x": 0.0,
+          "y": 0.0
+        },
+        "held_frames": 0,
+        "holding": false,
+        "precharge_allowed": false,
+        "precharge_support": "not_holdable_full_charge",
+        "special_control": false
+      },
+      "trigger_source": "type_and_inventory_inference",
+      "weapon_effects": [],
+      "unknown_items": [],
+      "attack_penetration": null,
+      "range_semantics": "Raw tear_range is not verified for every attack behavior."
+    },
+    "immediate_threats": {
+      "evaluated_count": 5,
+      "shown": [
+        {
+          "uid": "393:1586074399",
+          "kind": "projectile",
+          "type": 9,
+          "semantic_kind": "projectile",
+          "variant": 0,
+          "dx_px": -106.4,
+          "dy_px": 25.5,
+          "distance_px": 109.5,
+          "vulnerable": false,
+          "active_enemy": false,
+          "collision_class": 4,
+          "contact_damage": null,
+          "motion_estimate": {
+            "closing_now": true,
+            "closest_at_frames_estimate": 6.0,
+            "minimum_gap_px_estimate": 34.93,
+            "first_contact_frames_estimate": null
+          }
+        },
+        {
+          "uid": "2:300500020",
+          "kind": "enemy",
+          "type": 244,
+          "semantic_kind": "enemy",
+          "variant": 0,
+          "dx_px": -24.7,
+          "dy_px": 249.4,
+          "distance_px": 250.6,
+          "vulnerable": true,
+          "active_enemy": true,
+          "collision_class": 4,
+          "contact_damage": null,
+          "motion_estimate": {
+            "closing_now": true,
+            "closest_at_frames_estimate": 6.0,
+            "minimum_gap_px_estimate": 227.6,
+            "first_contact_frames_estimate": null
+          }
+        },
+        {
+          "uid": "5:219219326",
+          "kind": "enemy",
+          "type": 244,
+          "semantic_kind": "enemy",
+          "variant": 0,
+          "dx_px": -264.7,
+          "dy_px": 49.4,
+          "distance_px": 269.2,
+          "vulnerable": true,
+          "active_enemy": true,
+          "collision_class": 4,
+          "contact_damage": null,
+          "motion_estimate": {
+            "closing_now": true,
+            "closest_at_frames_estimate": 6.0,
+            "minimum_gap_px_estimate": 246.22,
+            "first_contact_frames_estimate": null
+          }
+        },
+        {
+          "uid": "3:2523135318",
+          "kind": "enemy",
+          "type": 244,
+          "semantic_kind": "enemy",
+          "variant": 0,
+          "dx_px": -304.7,
+          "dy_px": 249.4,
+          "distance_px": 393.7,
+          "vulnerable": true,
+          "active_enemy": true,
+          "collision_class": 4,
+          "contact_damage": null,
+          "motion_estimate": {
+            "closing_now": true,
+            "closest_at_frames_estimate": 6.0,
+            "minimum_gap_px_estimate": 370.71,
+            "first_contact_frames_estimate": null
+          }
+        },
+        {
+          "uid": "4:2090887159",
+          "kind": "enemy",
+          "type": 244,
+          "semantic_kind": "enemy",
+          "variant": 0,
+          "dx_px": -344.7,
+          "dy_px": 209.4,
+          "distance_px": 403.3,
+          "vulnerable": true,
+          "active_enemy": true,
+          "collision_class": 4,
+          "contact_damage": null,
+          "motion_estimate": {
+            "closing_now": true,
+            "closest_at_frames_estimate": 6.0,
+            "minimum_gap_px_estimate": 380.27,
+            "first_contact_frames_estimate": null
+          }
+        }
+      ],
+      "omitted_count": 0,
+      "horizon_frames": 6,
+      "assumption": "Observed velocities remain constant; conservative circle extents; geometry is not confirmed damage. No inertia, future turn, projectile height or pending-input rollout is simulated. Contact damage amounts are absent from current capture."
+    },
+    "attack_relations": {
+      "targets": [
+        {
+          "uid": "2:300500020",
+          "type": 244,
+          "variant": 0,
+          "vulnerable": true,
+          "distance_px": 250.6,
+          "cardinal_offsets_px": {
+            "left": [
+              24.7,
+              249.4
+            ],
+            "right": [
+              -24.7,
+              249.4
+            ],
+            "up": [
+              -249.4,
+              24.7
+            ],
+            "down": [
+              249.4,
+              24.7
+            ]
+          },
+          "intervening_grid_geometry": [
+            {
+              "kind": "grid",
+              "grid_index": 127,
+              "entry_distance_px": 109.9
+            }
+          ],
+          "grid_intersections_omitted": 0,
+          "can_hit_now": null,
+          "move_then_attack": null
+        },
+        {
+          "uid": "5:219219326",
+          "type": 244,
+          "variant": 0,
+          "vulnerable": true,
+          "distance_px": 269.3,
+          "cardinal_offsets_px": {
+            "left": [
+              264.7,
+              49.4
+            ],
+            "right": [
+              -264.7,
+              49.4
+            ],
+            "up": [
+              -49.4,
+              264.7
+            ],
+            "down": [
+              49.4,
+              264.7
+            ]
+          },
+          "intervening_grid_geometry": [],
+          "grid_intersections_omitted": 0,
+          "can_hit_now": null,
+          "move_then_attack": null
+        },
+        {
+          "uid": "3:2523135318",
+          "type": 244,
+          "variant": 0,
+          "vulnerable": true,
+          "distance_px": 393.8,
+          "cardinal_offsets_px": {
+            "left": [
+              304.7,
+              249.4
+            ],
+            "right": [
+              -304.7,
+              249.4
+            ],
+            "up": [
+              -249.4,
+              304.7
+            ],
+            "down": [
+              249.4,
+              304.7
+            ]
+          },
+          "intervening_grid_geometry": [
+            {
+              "kind": "grid",
+              "grid_index": 124,
+              "entry_distance_px": 172.7
+            }
+          ],
+          "grid_intersections_omitted": 0,
+          "can_hit_now": null,
+          "move_then_attack": null
+        },
+        {
+          "uid": "4:2090887159",
+          "type": 244,
+          "variant": 0,
+          "vulnerable": true,
+          "distance_px": 403.3,
+          "cardinal_offsets_px": {
+            "left": [
+              344.7,
+              209.4
+            ],
+            "right": [
+              -344.7,
+              209.4
+            ],
+            "up": [
+              -209.4,
+              344.7
+            ],
+            "down": [
+              209.4,
+              344.7
+            ]
+          },
+          "intervening_grid_geometry": [
+            {
+              "kind": "grid",
+              "grid_index": 121,
+              "entry_distance_px": 286.3
+            },
+            {
+              "kind": "grid",
+              "grid_index": 149,
+              "entry_distance_px": 287.7
+            },
+            {
+              "kind": "grid",
+              "grid_index": 148,
+              "entry_distance_px": 333.1
+            }
+          ],
+          "grid_intersections_omitted": 0,
+          "can_hit_now": null,
+          "move_then_attack": null
+        }
+      ],
+      "omitted_targets": 0,
+      "offset_columns": [
+        "forward_distance_px",
+        "lateral_offset_px"
+      ],
+      "geometry_known": true,
+      "assumption": "Straight player-center to target-center line, unexpanded 40px grid boxes. Intervening pits/rocks/walls are geometric facts, not shared attack blockers. Weapon trajectory, firing width, penetration, target motion and alternative attack-position paths remain unverified."
+    },
+    "known_area_hazards": {
+      "fields": [
+        "kind",
+        "dx",
+        "dy",
+        "radius",
+        "harmful",
+        "timeout",
+        "endpoint_rel",
+        "extent_source"
+      ],
+      "nearest": [],
+      "omitted": 0,
+      "unknown_effects": 3
+    },
+    "area_hazard_directions": [
+      [
+        "stay",
+        false
+      ],
+      [
+        "up",
+        false
+      ],
+      [
+        "down",
+        false
+      ],
+      [
+        "left",
+        false
+      ],
+      [
+        "right",
+        false
+      ],
+      [
+        "up_left",
+        false
+      ],
+      [
+        "up_right",
+        false
+      ],
+      [
+        "down_left",
+        false
+      ],
+      [
+        "down_right",
+        false
+      ]
+    ],
+    "familiars": {
+      "count": 0,
+      "fields": [
+        "variant",
+        "dx",
+        "dy",
+        "vx",
+        "vy",
+        "state",
+        "charge_ratio"
+      ],
+      "nearest": []
+    },
+    "history": [
+      {
+        "age_frames": 3,
+        "available": true,
+        "player_dx": 0,
+        "player_dy": 0,
+        "vx": 0,
+        "vy": 0,
+        "health": {
+          "max_red": 6,
+          "rotten": 0,
+          "black_mask": 0,
+          "soul": 0,
+          "red": 1,
+          "bone": 0
+        },
+        "enemy_count": 4,
+        "projectile_count": 1,
+        "nearest_enemy": [
+          {
+            "type": 244,
+            "dx": -24.7,
+            "dy": 249.4
+          }
+        ],
+        "nearest_projectiles": [
+          {
+            "dx": -136.1,
+            "dy": 30,
+            "vx": 9.89,
+            "vy": -1.49
+          }
+        ],
+        "weapon_charge_ratio": null
+      },
+      {
+        "age_frames": 9,
+        "available": true,
+        "player_dx": 0,
+        "player_dy": 0,
+        "vx": 0,
+        "vy": 0,
+        "health": {
+          "max_red": 6,
+          "rotten": 0,
+          "black_mask": 0,
+          "soul": 0,
+          "red": 1,
+          "bone": 0
+        },
+        "enemy_count": 4,
+        "projectile_count": 1,
+        "nearest_enemy": [
+          {
+            "type": 244,
+            "dx": -24.7,
+            "dy": 249.4
+          }
+        ],
+        "nearest_projectiles": [
+          {
+            "dx": -195.4,
+            "dy": 38.9,
+            "vx": 9.89,
+            "vy": -1.49
+          }
+        ],
+        "weapon_charge_ratio": null
+      },
+      {
+        "age_frames": 18,
+        "available": true,
+        "player_dx": 0,
+        "player_dy": 0,
+        "vx": 0,
+        "vy": 0,
+        "health": {
+          "max_red": 6,
+          "rotten": 0,
+          "black_mask": 0,
+          "soul": 0,
+          "red": 1,
+          "bone": 0
+        },
+        "enemy_count": 4,
+        "projectile_count": 0,
+        "nearest_enemy": [
+          {
+            "type": 244,
+            "dx": -24.7,
+            "dy": 249.4
+          }
+        ],
+        "nearest_projectiles": [],
+        "weapon_charge_ratio": null
+      }
+    ],
+    "recent_attack_feedback": {
+      "state": "unknown",
+      "reason": "Current schema does not record a causal last-attack failure reason."
+    },
+    "movement_options": [
+      {
+        "id": "stay",
+        "static_clearance_px_estimate": null,
+        "legacy_candidate_min_gap_px_estimate": 34.9,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "up",
+        "static_clearance_px_estimate": 0.0,
+        "legacy_candidate_min_gap_px_estimate": 47.1,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "down",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 32.7,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "left",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 13.4,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "right",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 58.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "up_left",
+        "static_clearance_px_estimate": 0.0,
+        "legacy_candidate_min_gap_px_estimate": 30.1,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "up_right",
+        "static_clearance_px_estimate": 0.0,
+        "legacy_candidate_min_gap_px_estimate": 57.3,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "down_left",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 15.2,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "down_right",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 49.1,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      }
+    ],
+    "movement_option_assumptions": "Legacy constant candidate speed 4*move_speed, immediate direction change, 6-frame threat horizon; static clearance clipped at 80px; hazard query uses a 40px segment. Different horizons are not a calibrated rollout. All nine options remain present, including risky ones; no action is recommended or intercepted."
+  },
+  "audit": {
+    "room_id": "1:0:83",
+    "game_frame": 1670,
+    "build_ms": 7.056,
+    "old_numeric_size": 387,
+    "legacy_v005_text_characters": 5514,
+    "future_labels_in_input": false,
+    "deployable_contract": false,
+    "scope": "Offline text preview only; no API call or gameplay input.",
+    "source": ".local\\isaac-skill\\v005-stationary-snapshots.json",
+    "source_sha256": "3dcf392902b49c478d83ba388c74dda71cd83122273cb4dc065033e78132a02e",
+    "source_index": 2
+  }
+}

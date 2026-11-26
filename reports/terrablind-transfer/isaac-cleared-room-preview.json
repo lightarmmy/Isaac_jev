@@ -1,0 +1,343 @@
+{
+  "preview_version": "terrablind-transfer-offline-preview-v1",
+  "instructions": "Survive while making useful progress against enemies. Compare immediate danger, escape room and useful attack access together. When attack access is poor, compare repositioning opportunities; approaching an enemy is useful only when it improves attack access without entering contact danger. Holding a safe effective firing position or waiting for a required charge can be reasonable. Interpret geometric obstructions using the current attack capabilities. Unknown mechanisms stay unknown. Movement and shooting may occur together. Estimates are not confirmed future hits.",
+  "state": {
+    "units": "Positions/clearance in pixels, dx right positive, dy down positive; velocities pixels per 30Hz logic frame.",
+    "player": {
+      "vx": 0,
+      "vy": 0,
+      "health": {
+        "bone": 0,
+        "red": 6,
+        "rotten": 0,
+        "max_red": 6,
+        "black_mask": 0,
+        "soul": 0
+      },
+      "stats": {
+        "tear_flags": {
+          "encoding": "bitset128",
+          "low_hex": "0000000000000000",
+          "high_hex": "0000000000000000"
+        },
+        "luck": 0,
+        "max_fire_delay": 10,
+        "tear_range": 260,
+        "move_speed": 1,
+        "damage": 3.5,
+        "tear_height": -23.75,
+        "shot_speed": 1
+      },
+      "can_fly": false
+    },
+    "capabilities": {
+      "weapon": {
+        "type": 1,
+        "name": "tears",
+        "source": "observed",
+        "trigger": "continuous",
+        "charge": 0.0,
+        "max_charge": 0.0,
+        "charge_ratio": null,
+        "charge_known": false,
+        "num_fired": 59,
+        "fire_delay": -1.0,
+        "modifiers": 0,
+        "shoot_direction": {
+          "y": 0.0,
+          "x": 0.0
+        },
+        "held_frames": 0,
+        "holding": false,
+        "precharge_allowed": false,
+        "precharge_support": "not_holdable_full_charge",
+        "special_control": false
+      },
+      "trigger_source": "type_and_inventory_inference",
+      "weapon_effects": [],
+      "unknown_items": [],
+      "attack_penetration": null,
+      "range_semantics": "Raw tear_range is not verified for every attack behavior."
+    },
+    "immediate_threats": {
+      "evaluated_count": 2,
+      "shown": [
+        {
+          "uid": "3:1179041483",
+          "kind": "enemy",
+          "type": 33,
+          "semantic_kind": "live_fireplace_contact_hazard",
+          "variant": 0,
+          "dx_px": -120.0,
+          "dy_px": 0.0,
+          "distance_px": 120.0,
+          "vulnerable": false,
+          "active_enemy": false,
+          "collision_class": 4,
+          "contact_damage": null,
+          "motion_estimate": {
+            "closing_now": false,
+            "closest_at_frames_estimate": 0.0,
+            "minimum_gap_px_estimate": 97.0,
+            "first_contact_frames_estimate": null
+          }
+        },
+        {
+          "uid": "1:3813399741",
+          "kind": "enemy",
+          "type": 33,
+          "semantic_kind": "live_fireplace_contact_hazard",
+          "variant": 0,
+          "dx_px": -360.0,
+          "dy_px": 0.0,
+          "distance_px": 360.0,
+          "vulnerable": false,
+          "active_enemy": false,
+          "collision_class": 4,
+          "contact_damage": null,
+          "motion_estimate": {
+            "closing_now": false,
+            "closest_at_frames_estimate": 0.0,
+            "minimum_gap_px_estimate": 337.0,
+            "first_contact_frames_estimate": null
+          }
+        }
+      ],
+      "omitted_count": 0,
+      "horizon_frames": 6,
+      "assumption": "Observed velocities remain constant; conservative circle extents; geometry is not confirmed damage. No inertia, future turn, projectile height or pending-input rollout is simulated. Contact damage amounts are absent from current capture."
+    },
+    "attack_relations": {
+      "targets": [
+        {
+          "uid": "3:1179041483",
+          "type": 33,
+          "variant": 0,
+          "vulnerable": false,
+          "distance_px": 120.0,
+          "cardinal_offsets_px": {
+            "left": [
+              120.0,
+              0.0
+            ],
+            "right": [
+              -120.0,
+              0.0
+            ],
+            "up": [
+              -0.0,
+              120.0
+            ],
+            "down": [
+              0.0,
+              120.0
+            ]
+          },
+          "intervening_grid_geometry": [],
+          "grid_intersections_omitted": 0,
+          "can_hit_now": null,
+          "move_then_attack": null
+        },
+        {
+          "uid": "1:3813399741",
+          "type": 33,
+          "variant": 0,
+          "vulnerable": false,
+          "distance_px": 360.0,
+          "cardinal_offsets_px": {
+            "left": [
+              360.0,
+              0.0
+            ],
+            "right": [
+              -360.0,
+              0.0
+            ],
+            "up": [
+              -0.0,
+              360.0
+            ],
+            "down": [
+              0.0,
+              360.0
+            ]
+          },
+          "intervening_grid_geometry": [],
+          "grid_intersections_omitted": 0,
+          "can_hit_now": null,
+          "move_then_attack": null
+        }
+      ],
+      "omitted_targets": 0,
+      "offset_columns": [
+        "forward_distance_px",
+        "lateral_offset_px"
+      ],
+      "geometry_known": true,
+      "assumption": "Straight player-center to target-center line, unexpanded 40px grid boxes. Intervening pits/rocks/walls are geometric facts, not shared attack blockers. Weapon trajectory, firing width, penetration, target motion and alternative attack-position paths remain unverified."
+    },
+    "known_area_hazards": {
+      "fields": [
+        "kind",
+        "dx",
+        "dy",
+        "radius",
+        "harmful",
+        "timeout",
+        "endpoint_rel",
+        "extent_source"
+      ],
+      "nearest": [],
+      "omitted": 0,
+      "unknown_effects": 1
+    },
+    "area_hazard_directions": [
+      [
+        "stay",
+        false
+      ],
+      [
+        "up",
+        false
+      ],
+      [
+        "down",
+        false
+      ],
+      [
+        "left",
+        false
+      ],
+      [
+        "right",
+        false
+      ],
+      [
+        "up_left",
+        false
+      ],
+      [
+        "up_right",
+        false
+      ],
+      [
+        "down_left",
+        false
+      ],
+      [
+        "down_right",
+        false
+      ]
+    ],
+    "familiars": {
+      "count": 0,
+      "fields": [
+        "variant",
+        "dx",
+        "dy",
+        "vx",
+        "vy",
+        "state",
+        "charge_ratio"
+      ],
+      "nearest": []
+    },
+    "history": [
+      {
+        "age_frames": 3,
+        "available": false
+      },
+      {
+        "age_frames": 9,
+        "available": false
+      },
+      {
+        "age_frames": 18,
+        "available": false
+      }
+    ],
+    "recent_attack_feedback": {
+      "state": "unknown",
+      "reason": "Current schema does not record a causal last-attack failure reason."
+    },
+    "movement_options": [
+      {
+        "id": "stay",
+        "static_clearance_px_estimate": null,
+        "legacy_candidate_min_gap_px_estimate": 97.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "up",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 97.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "down",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 97.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "left",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 73.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "right",
+        "static_clearance_px_estimate": 10.0,
+        "legacy_candidate_min_gap_px_estimate": 97.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "up_left",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 81.4,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "up_right",
+        "static_clearance_px_estimate": 14.0,
+        "legacy_candidate_min_gap_px_estimate": 97.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "down_left",
+        "static_clearance_px_estimate": 80.0,
+        "legacy_candidate_min_gap_px_estimate": 81.4,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      },
+      {
+        "id": "down_right",
+        "static_clearance_px_estimate": 14.0,
+        "legacy_candidate_min_gap_px_estimate": 97.0,
+        "known_area_hazard_intersection_estimate": false,
+        "fire_contact_intersection_estimate": false
+      }
+    ],
+    "movement_option_assumptions": "Legacy constant candidate speed 4*move_speed, immediate direction change, 6-frame threat horizon; static clearance clipped at 80px; hazard query uses a 40px segment. Different horizons are not a calibrated rollout. All nine options remain present, including risky ones; no action is recommended or intercepted."
+  },
+  "audit": {
+    "room_id": "1:0:96",
+    "game_frame": 2401,
+    "build_ms": 2.13,
+    "old_numeric_size": 387,
+    "legacy_v005_text_characters": 4418,
+    "future_labels_in_input": false,
+    "deployable_contract": false,
+    "scope": "Offline text preview only; no API call or gameplay input.",
+    "source": ".local\\isaac-skill\\fire-navigation-fixture-96.json",
+    "source_sha256": "aa40159c39b173e6d579eb65d8b6adf37d0cfeb040512360ded8e313df9160ab",
+    "source_index": 0
+  }
+}

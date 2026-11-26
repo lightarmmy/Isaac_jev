@@ -1,0 +1,860 @@
+{
+  "run_id": "isaac-seed:3717436447",
+  "checkpoint": "combat-v006-e08-epoch013",
+  "combat_requests": 152,
+  "rejected": 13,
+  "rejection_fraction": 0.08552631578947369,
+  "prediction_count": 155,
+  "source_age_ms": {
+    "median": 16.0,
+    "max": 47.0
+  },
+  "rejected_rpc_ms": {
+    "min": 133.568,
+    "median": 137.101,
+    "max": 180.671
+  },
+  "rejected_model_ms": {
+    "min": 52.058,
+    "max": 52.799
+  },
+  "control_audit": {
+    "recording": "D:\\my_project_for_D\\qwen_jev_for_cardgame\\recordings\\20261125-124744-698025400-d58296d6\\frames.jsonl.gz",
+    "gzip_complete": false,
+    "trailing_partial_line": true,
+    "groups": [
+      {
+        "epoch": 1,
+        "run_id": "isaac-seed:3717436447",
+        "room_id": "1:0:83",
+        "phase": "all_ai",
+        "recorded_frames": 866,
+        "frame_range": [
+          448,
+          1313
+        ],
+        "missing_frames": 0,
+        "wall_seconds": 28.849,
+        "commands": 152,
+        "ack_reasons": {
+          "accepted:accepted": 140,
+          "rejected:expired/future command": 12
+        },
+        "action_starts": 133,
+        "start_delay_frames": {
+          "count": 133,
+          "min": 2,
+          "median": 5,
+          "max": 5
+        },
+        "scheduled_hold_frames": {
+          "count": 133,
+          "min": 1,
+          "median": 6,
+          "max": 6
+        },
+        "median_send_interval_ms": 65.875,
+        "event_interval_union_frames": 212,
+        "event_interval_union_fraction": 0.2448,
+        "actual_query_frames": 336,
+        "actual_query_fraction": 0.388,
+        "actual_nonzero_frames": 326,
+        "note": "Actual query coverage uses deduplicated applied_controls frame keys. Event intervals are an estimate for old logs; an ACK is not execution."
+      },
+      {
+        "epoch": 1,
+        "run_id": "isaac-seed:3717436447",
+        "room_id": "1:0:83",
+        "phase": "combat",
+        "recorded_frames": 361,
+        "frame_range": [
+          448,
+          808
+        ],
+        "missing_frames": 0,
+        "wall_seconds": 12.016,
+        "commands": 151,
+        "ack_reasons": {
+          "accepted:accepted": 139,
+          "rejected:expired/future command": 12
+        },
+        "action_starts": 132,
+        "start_delay_frames": {
+          "count": 132,
+          "min": 4,
+          "median": 5.0,
+          "max": 5
+        },
+        "scheduled_hold_frames": {
+          "count": 132,
+          "min": 6,
+          "median": 6.0,
+          "max": 6
+        },
+        "median_send_interval_ms": 65.865,
+        "event_interval_union_frames": 205,
+        "event_interval_union_fraction": 0.5679,
+        "actual_query_frames": 329,
+        "actual_query_fraction": 0.9114,
+        "actual_nonzero_frames": 320,
+        "note": "Actual query coverage uses deduplicated applied_controls frame keys. Event intervals are an estimate for old logs; an ACK is not execution."
+      }
+    ]
+  },
+  "readonly_before": {
+    "scope": "readonly RPC replay, no game input",
+    "label": "before",
+    "checkpoint": "combat-v006-e08-epoch013",
+    "samples": 32,
+    "rpc_ms": {
+      "min": 58.093,
+      "median": 60.212500000000006,
+      "p90": 61.905,
+      "max": 78.716
+    },
+    "model_ms": {
+      "min": 50.524,
+      "median": 52.3755,
+      "p90": 52.881,
+      "max": 70.555
+    },
+    "extra_ms": {
+      "min": 6.818,
+      "median": 7.7255,
+      "p90": 8.62,
+      "max": 13.22
+    },
+    "requests": [
+      {
+        "game_frame": 448,
+        "rpc_ms": 58.093,
+        "model_ms": 50.524,
+        "extra_ms": 7.569,
+        "action_id": 18,
+        "request_bytes": 7158
+      },
+      {
+        "game_frame": 459,
+        "rpc_ms": 60.169,
+        "model_ms": 51.549,
+        "extra_ms": 8.62,
+        "action_id": 22,
+        "request_bytes": 7950
+      },
+      {
+        "game_frame": 471,
+        "rpc_ms": 59.972,
+        "model_ms": 52.64,
+        "extra_ms": 7.332,
+        "action_id": 18,
+        "request_bytes": 8030
+      },
+      {
+        "game_frame": 482,
+        "rpc_ms": 60.207,
+        "model_ms": 52.568,
+        "extra_ms": 7.639,
+        "action_id": 23,
+        "request_bytes": 8839
+      },
+      {
+        "game_frame": 494,
+        "rpc_ms": 60.311,
+        "model_ms": 52.631,
+        "extra_ms": 7.68,
+        "action_id": 3,
+        "request_bytes": 8934
+      },
+      {
+        "game_frame": 506,
+        "rpc_ms": 59.661,
+        "model_ms": 52.339,
+        "extra_ms": 7.322,
+        "action_id": 3,
+        "request_bytes": 8821
+      },
+      {
+        "game_frame": 517,
+        "rpc_ms": 59.367,
+        "model_ms": 52.366,
+        "extra_ms": 7.001,
+        "action_id": 3,
+        "request_bytes": 8909
+      },
+      {
+        "game_frame": 529,
+        "rpc_ms": 60.302,
+        "model_ms": 52.285,
+        "extra_ms": 8.017,
+        "action_id": 3,
+        "request_bytes": 8903
+      },
+      {
+        "game_frame": 540,
+        "rpc_ms": 78.716,
+        "model_ms": 70.555,
+        "extra_ms": 8.161,
+        "action_id": 38,
+        "request_bytes": 9225
+      },
+      {
+        "game_frame": 552,
+        "rpc_ms": 61.383,
+        "model_ms": 53.346,
+        "extra_ms": 8.037,
+        "action_id": 11,
+        "request_bytes": 9017
+      },
+      {
+        "game_frame": 564,
+        "rpc_ms": 59.693,
+        "model_ms": 52.519,
+        "extra_ms": 7.174,
+        "action_id": 4,
+        "request_bytes": 8941
+      },
+      {
+        "game_frame": 575,
+        "rpc_ms": 59.563,
+        "model_ms": 52.318,
+        "extra_ms": 7.245,
+        "action_id": 4,
+        "request_bytes": 8725
+      },
+      {
+        "game_frame": 587,
+        "rpc_ms": 63.374,
+        "model_ms": 52.216,
+        "extra_ms": 11.158,
+        "action_id": 4,
+        "request_bytes": 8597
+      },
+      {
+        "game_frame": 598,
+        "rpc_ms": 59.648,
+        "model_ms": 52.374,
+        "extra_ms": 7.274,
+        "action_id": 4,
+        "request_bytes": 8474
+      },
+      {
+        "game_frame": 610,
+        "rpc_ms": 59.942,
+        "model_ms": 53.005,
+        "extra_ms": 6.937,
+        "action_id": 4,
+        "request_bytes": 8474
+      },
+      {
+        "game_frame": 622,
+        "rpc_ms": 61.136,
+        "model_ms": 52.729,
+        "extra_ms": 8.407,
+        "action_id": 4,
+        "request_bytes": 8755
+      },
+      {
+        "game_frame": 633,
+        "rpc_ms": 59.756,
+        "model_ms": 52.277,
+        "extra_ms": 7.479,
+        "action_id": 4,
+        "request_bytes": 8565
+      },
+      {
+        "game_frame": 645,
+        "rpc_ms": 60.216,
+        "model_ms": 52.668,
+        "extra_ms": 7.548,
+        "action_id": 19,
+        "request_bytes": 8574
+      },
+      {
+        "game_frame": 657,
+        "rpc_ms": 61.905,
+        "model_ms": 52.233,
+        "extra_ms": 9.672,
+        "action_id": 14,
+        "request_bytes": 8590
+      },
+      {
+        "game_frame": 668,
+        "rpc_ms": 60.628,
+        "model_ms": 52.881,
+        "extra_ms": 7.747,
+        "action_id": 24,
+        "request_bytes": 8759
+      },
+      {
+        "game_frame": 680,
+        "rpc_ms": 61.32,
+        "model_ms": 52.781,
+        "extra_ms": 8.539,
+        "action_id": 11,
+        "request_bytes": 8648
+      },
+      {
+        "game_frame": 691,
+        "rpc_ms": 60.668,
+        "model_ms": 52.584,
+        "extra_ms": 8.084,
+        "action_id": 11,
+        "request_bytes": 8641
+      },
+      {
+        "game_frame": 703,
+        "rpc_ms": 59.912,
+        "model_ms": 52.377,
+        "extra_ms": 7.535,
+        "action_id": 11,
+        "request_bytes": 8536
+      },
+      {
+        "game_frame": 715,
+        "rpc_ms": 60.209,
+        "model_ms": 52.232,
+        "extra_ms": 7.977,
+        "action_id": 1,
+        "request_bytes": 8506
+      },
+      {
+        "game_frame": 726,
+        "rpc_ms": 61.003,
+        "model_ms": 52.505,
+        "extra_ms": 8.498,
+        "action_id": 4,
+        "request_bytes": 8595
+      },
+      {
+        "game_frame": 738,
+        "rpc_ms": 60.941,
+        "model_ms": 52.594,
+        "extra_ms": 8.347,
+        "action_id": 3,
+        "request_bytes": 8147
+      },
+      {
+        "game_frame": 749,
+        "rpc_ms": 61.358,
+        "model_ms": 52.232,
+        "extra_ms": 9.126,
+        "action_id": 1,
+        "request_bytes": 8150
+      },
+      {
+        "game_frame": 761,
+        "rpc_ms": 59.005,
+        "model_ms": 52.187,
+        "extra_ms": 6.818,
+        "action_id": 5,
+        "request_bytes": 8328
+      },
+      {
+        "game_frame": 773,
+        "rpc_ms": 65.482,
+        "model_ms": 52.262,
+        "extra_ms": 13.22,
+        "action_id": 22,
+        "request_bytes": 8341
+      },
+      {
+        "game_frame": 784,
+        "rpc_ms": 62.158,
+        "model_ms": 54.339,
+        "extra_ms": 7.819,
+        "action_id": 24,
+        "request_bytes": 8475
+      },
+      {
+        "game_frame": 796,
+        "rpc_ms": 59.942,
+        "model_ms": 52.238,
+        "extra_ms": 7.704,
+        "action_id": 10,
+        "request_bytes": 8268
+      },
+      {
+        "game_frame": 808,
+        "rpc_ms": 59.237,
+        "model_ms": 52.323,
+        "extra_ms": 6.914,
+        "action_id": 23,
+        "request_bytes": 8063
+      }
+    ]
+  },
+  "readonly_after": {
+    "scope": "readonly RPC replay, no game input",
+    "label": "after",
+    "checkpoint": "combat-v006-e08-epoch013",
+    "samples": 32,
+    "rpc_ms": {
+      "min": 58.67,
+      "median": 60.1135,
+      "p90": 63.37,
+      "max": 78.555
+    },
+    "model_ms": {
+      "min": 51.799,
+      "median": 52.791,
+      "p90": 53.803,
+      "max": 71.121
+    },
+    "extra_ms": {
+      "min": 6.315,
+      "median": 7.2345,
+      "p90": 9.015,
+      "max": 12.075
+    },
+    "requests": [
+      {
+        "game_frame": 448,
+        "rpc_ms": 59.155,
+        "model_ms": 51.799,
+        "extra_ms": 7.356,
+        "action_id": 18,
+        "request_bytes": 7158,
+        "server_ms": 54.99,
+        "worker_ms": 54.523,
+        "pre_model_ms": 0.247,
+        "post_model_ms": 2.477
+      },
+      {
+        "game_frame": 459,
+        "rpc_ms": 60.5,
+        "model_ms": 51.806,
+        "extra_ms": 8.694,
+        "action_id": 22,
+        "request_bytes": 7950,
+        "server_ms": 55.052,
+        "worker_ms": 54.635,
+        "pre_model_ms": 0.062,
+        "post_model_ms": 2.767
+      },
+      {
+        "game_frame": 471,
+        "rpc_ms": 60.077,
+        "model_ms": 52.441,
+        "extra_ms": 7.636,
+        "action_id": 18,
+        "request_bytes": 8030,
+        "server_ms": 55.654,
+        "worker_ms": 55.278,
+        "pre_model_ms": 0.057,
+        "post_model_ms": 2.78
+      },
+      {
+        "game_frame": 482,
+        "rpc_ms": 60.024,
+        "model_ms": 52.588,
+        "extra_ms": 7.436,
+        "action_id": 23,
+        "request_bytes": 8839,
+        "server_ms": 55.954,
+        "worker_ms": 55.596,
+        "pre_model_ms": 0.054,
+        "post_model_ms": 2.954
+      },
+      {
+        "game_frame": 494,
+        "rpc_ms": 61.88,
+        "model_ms": 53.025,
+        "extra_ms": 8.855,
+        "action_id": 3,
+        "request_bytes": 8934,
+        "server_ms": 56.587,
+        "worker_ms": 56.226,
+        "pre_model_ms": 0.051,
+        "post_model_ms": 3.151
+      },
+      {
+        "game_frame": 506,
+        "rpc_ms": 59.76,
+        "model_ms": 52.811,
+        "extra_ms": 6.949,
+        "action_id": 3,
+        "request_bytes": 8821,
+        "server_ms": 56.166,
+        "worker_ms": 55.819,
+        "pre_model_ms": 0.056,
+        "post_model_ms": 2.951
+      },
+      {
+        "game_frame": 517,
+        "rpc_ms": 59.521,
+        "model_ms": 52.854,
+        "extra_ms": 6.667,
+        "action_id": 3,
+        "request_bytes": 8909,
+        "server_ms": 56.247,
+        "worker_ms": 55.903,
+        "pre_model_ms": 0.053,
+        "post_model_ms": 2.996
+      },
+      {
+        "game_frame": 529,
+        "rpc_ms": 64.719,
+        "model_ms": 52.888,
+        "extra_ms": 11.831,
+        "action_id": 3,
+        "request_bytes": 8903,
+        "server_ms": 56.422,
+        "worker_ms": 55.968,
+        "pre_model_ms": 0.062,
+        "post_model_ms": 3.018
+      },
+      {
+        "game_frame": 540,
+        "rpc_ms": 78.555,
+        "model_ms": 71.121,
+        "extra_ms": 7.434,
+        "action_id": 38,
+        "request_bytes": 9225,
+        "server_ms": 74.66,
+        "worker_ms": 74.265,
+        "pre_model_ms": 0.052,
+        "post_model_ms": 3.092
+      },
+      {
+        "game_frame": 552,
+        "rpc_ms": 61.067,
+        "model_ms": 53.803,
+        "extra_ms": 7.264,
+        "action_id": 11,
+        "request_bytes": 9017,
+        "server_ms": 57.257,
+        "worker_ms": 56.889,
+        "pre_model_ms": 0.051,
+        "post_model_ms": 3.035
+      },
+      {
+        "game_frame": 564,
+        "rpc_ms": 60.233,
+        "model_ms": 53.024,
+        "extra_ms": 7.209,
+        "action_id": 4,
+        "request_bytes": 8941,
+        "server_ms": 56.485,
+        "worker_ms": 56.112,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 3.041
+      },
+      {
+        "game_frame": 575,
+        "rpc_ms": 63.455,
+        "model_ms": 52.518,
+        "extra_ms": 10.937,
+        "action_id": 4,
+        "request_bytes": 8725,
+        "server_ms": 55.767,
+        "worker_ms": 55.421,
+        "pre_model_ms": 0.05,
+        "post_model_ms": 2.853
+      },
+      {
+        "game_frame": 587,
+        "rpc_ms": 59.248,
+        "model_ms": 52.481,
+        "extra_ms": 6.767,
+        "action_id": 4,
+        "request_bytes": 8597,
+        "server_ms": 55.769,
+        "worker_ms": 55.423,
+        "pre_model_ms": 0.048,
+        "post_model_ms": 2.894
+      },
+      {
+        "game_frame": 598,
+        "rpc_ms": 59.112,
+        "model_ms": 52.719,
+        "extra_ms": 6.393,
+        "action_id": 4,
+        "request_bytes": 8474,
+        "server_ms": 55.94,
+        "worker_ms": 55.594,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 2.828
+      },
+      {
+        "game_frame": 610,
+        "rpc_ms": 59.197,
+        "model_ms": 52.804,
+        "extra_ms": 6.393,
+        "action_id": 4,
+        "request_bytes": 8474,
+        "server_ms": 55.909,
+        "worker_ms": 55.577,
+        "pre_model_ms": 0.048,
+        "post_model_ms": 2.725
+      },
+      {
+        "game_frame": 622,
+        "rpc_ms": 60.489,
+        "model_ms": 53.306,
+        "extra_ms": 7.183,
+        "action_id": 4,
+        "request_bytes": 8755,
+        "server_ms": 56.622,
+        "worker_ms": 56.277,
+        "pre_model_ms": 0.045,
+        "post_model_ms": 2.925
+      },
+      {
+        "game_frame": 633,
+        "rpc_ms": 61.423,
+        "model_ms": 54.163,
+        "extra_ms": 7.26,
+        "action_id": 4,
+        "request_bytes": 8565,
+        "server_ms": 57.5,
+        "worker_ms": 57.131,
+        "pre_model_ms": 0.049,
+        "post_model_ms": 2.918
+      },
+      {
+        "game_frame": 645,
+        "rpc_ms": 61.398,
+        "model_ms": 54.837,
+        "extra_ms": 6.561,
+        "action_id": 19,
+        "request_bytes": 8574,
+        "server_ms": 58.196,
+        "worker_ms": 57.813,
+        "pre_model_ms": 0.058,
+        "post_model_ms": 2.918
+      },
+      {
+        "game_frame": 657,
+        "rpc_ms": 59.842,
+        "model_ms": 52.387,
+        "extra_ms": 7.455,
+        "action_id": 14,
+        "request_bytes": 8590,
+        "server_ms": 55.693,
+        "worker_ms": 55.321,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 2.887
+      },
+      {
+        "game_frame": 668,
+        "rpc_ms": 60.04,
+        "model_ms": 52.59,
+        "extra_ms": 7.45,
+        "action_id": 24,
+        "request_bytes": 8759,
+        "server_ms": 55.863,
+        "worker_ms": 55.519,
+        "pre_model_ms": 0.048,
+        "post_model_ms": 2.881
+      },
+      {
+        "game_frame": 680,
+        "rpc_ms": 59.393,
+        "model_ms": 52.574,
+        "extra_ms": 6.819,
+        "action_id": 11,
+        "request_bytes": 8648,
+        "server_ms": 56.002,
+        "worker_ms": 55.644,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 3.024
+      },
+      {
+        "game_frame": 691,
+        "rpc_ms": 60.15,
+        "model_ms": 53.19,
+        "extra_ms": 6.96,
+        "action_id": 11,
+        "request_bytes": 8641,
+        "server_ms": 56.458,
+        "worker_ms": 56.114,
+        "pre_model_ms": 0.048,
+        "post_model_ms": 2.876
+      },
+      {
+        "game_frame": 703,
+        "rpc_ms": 60.565,
+        "model_ms": 53.217,
+        "extra_ms": 7.348,
+        "action_id": 11,
+        "request_bytes": 8536,
+        "server_ms": 56.44,
+        "worker_ms": 56.106,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 2.841
+      },
+      {
+        "game_frame": 715,
+        "rpc_ms": 59.895,
+        "model_ms": 52.879,
+        "extra_ms": 7.016,
+        "action_id": 1,
+        "request_bytes": 8506,
+        "server_ms": 56.299,
+        "worker_ms": 55.94,
+        "pre_model_ms": 0.045,
+        "post_model_ms": 3.016
+      },
+      {
+        "game_frame": 726,
+        "rpc_ms": 63.37,
+        "model_ms": 52.483,
+        "extra_ms": 10.887,
+        "action_id": 4,
+        "request_bytes": 8595,
+        "server_ms": 55.654,
+        "worker_ms": 55.324,
+        "pre_model_ms": 0.05,
+        "post_model_ms": 2.791
+      },
+      {
+        "game_frame": 738,
+        "rpc_ms": 58.67,
+        "model_ms": 52.355,
+        "extra_ms": 6.315,
+        "action_id": 3,
+        "request_bytes": 8147,
+        "server_ms": 55.517,
+        "worker_ms": 55.183,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 2.781
+      },
+      {
+        "game_frame": 749,
+        "rpc_ms": 78.316,
+        "model_ms": 66.241,
+        "extra_ms": 12.075,
+        "action_id": 1,
+        "request_bytes": 8150,
+        "server_ms": 69.669,
+        "worker_ms": 69.285,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 2.997
+      },
+      {
+        "game_frame": 761,
+        "rpc_ms": 59.051,
+        "model_ms": 52.202,
+        "extra_ms": 6.849,
+        "action_id": 5,
+        "request_bytes": 8328,
+        "server_ms": 55.42,
+        "worker_ms": 55.07,
+        "pre_model_ms": 0.057,
+        "post_model_ms": 2.811
+      },
+      {
+        "game_frame": 773,
+        "rpc_ms": 60.273,
+        "model_ms": 53.112,
+        "extra_ms": 7.161,
+        "action_id": 22,
+        "request_bytes": 8341,
+        "server_ms": 56.397,
+        "worker_ms": 56.041,
+        "pre_model_ms": 0.049,
+        "post_model_ms": 2.881
+      },
+      {
+        "game_frame": 784,
+        "rpc_ms": 61.793,
+        "model_ms": 52.778,
+        "extra_ms": 9.015,
+        "action_id": 24,
+        "request_bytes": 8475,
+        "server_ms": 56.257,
+        "worker_ms": 55.866,
+        "pre_model_ms": 0.048,
+        "post_model_ms": 3.04
+      },
+      {
+        "game_frame": 796,
+        "rpc_ms": 59.239,
+        "model_ms": 52.612,
+        "extra_ms": 6.627,
+        "action_id": 10,
+        "request_bytes": 8268,
+        "server_ms": 55.845,
+        "worker_ms": 55.47,
+        "pre_model_ms": 0.052,
+        "post_model_ms": 2.806
+      },
+      {
+        "game_frame": 808,
+        "rpc_ms": 59.729,
+        "model_ms": 52.567,
+        "extra_ms": 7.162,
+        "action_id": 23,
+        "request_bytes": 8063,
+        "server_ms": 55.849,
+        "worker_ms": 55.503,
+        "pre_model_ms": 0.047,
+        "post_model_ms": 2.889
+      }
+    ]
+  },
+  "readonly_actions_match": 32,
+  "original_spike_reproduced_in_replay": false,
+  "tests_passed": 183,
+  "relay": {
+    "pid": 46424,
+    "state": "ready",
+    "ready": true,
+    "host": "10.28.0.22",
+    "port": 31203,
+    "username": "root",
+    "error": null,
+    "source": "managed_tunnel",
+    "ssh_tcp_nodelay": true,
+    "local_tcp_nodelay": true
+  },
+  "doctor": {
+    "service": "isaac-play-tools-v1",
+    "game_connected": true,
+    "frame_available": true,
+    "mod_version": "0.6.0",
+    "input_timing": "start-relative-v1",
+    "planner_schema": 1,
+    "bridge_control_leases": true,
+    "game_fresh": false,
+    "battle_ai": {
+      "ready": true,
+      "backend": {
+        "checkpoint": "combat-v006-e08-epoch013",
+        "gpu": "NVIDIA L40S",
+        "torch": "2.6.0+cu124",
+        "cpu_threads": 1,
+        "interop_threads": 1,
+        "flash_linear_attention": "0.4.0",
+        "causal_conv1d": null,
+        "pad_multiple": 512,
+        "max_tokens": 3072,
+        "dtype": "bfloat16",
+        "warmup_lengths": [
+          512,
+          1024,
+          1536,
+          2048,
+          2560,
+          3072
+        ]
+      },
+      "local_model_loaded": false
+    },
+    "scope": "first demo",
+    "local_model_loaded": false
+  },
+  "game_after": {
+    "room_id": "1:0:83",
+    "health": {
+      "bone": 0,
+      "red": 2,
+      "rotten": 0,
+      "max_red": 6,
+      "black_mask": 0,
+      "soul": 0
+    },
+    "autoplay": false,
+    "controller_phase": "manual"
+  }
+}

@@ -1,6 +1,10 @@
 # L40S 常驻推理
 
-2026-11-24：当前默认模型已更新为服务器 `/xufanghui/isaac-jev/artifacts/combat-v004`，由 `configs/remote_policy.json` 指定。它修正 v003 照抄前一次动作导致原地不动的问题，保留物理历史并按执行延迟对齐，详见 [v004 训练和验证](TRAINING_V004.md)。电脑只运行游戏桥接和远程客户端，checkpoint 留在服务器；本机已有历史模型无需删除。下方加速对照表为 v003 的历史结果，v004 最新总响应约 55–80 ms。
+2026-11-25：默认模型已切换为 **combat-v005 最佳第 2 轮权重**，由 `configs/remote_policy.json` 指定。服务器入口仍为 `/xufanghui/isaac-jev`，其中 `artifacts/combat-v005` 和 `datasets/combat-v005` 链接到独立训练工作区。V004 权重保留。电脑只运行游戏桥接和远程客户端，checkpoint 留在服务器。V005 构筑、蓄力和地形输入见 [训练报告](TRAINING_V005.md)；下方 v003/v004 的表格与诊断保留为历史结果。
+
+新服务已预热，describe 确认为 V005、best_epoch=2、`column-tables-round2-v1`，32 个固定验证/测试样本的服务方式特征与训练缓存动作一致，最低余弦相似度 0.999887。dsh 的 isaac-play 已安装新版输入及蓄力交接代码，本地工具后台和游戏桥已重启，doctor 返回 `battle_ai.ready=true`、`backend.checkpoint=combat-v005`。开始本轮实机验证前，dsh 重新读取技能，用户回游戏取消暂停以恢复新帧。
+
+本次经实际本机 SSH 通路的准备好输入总响应中位数为 57.95/85.17/103.67ms（1281/2075/2940 tokens，各 15 次）。模型部分约 51.42/77.21/93.02ms。短/中输入本次抽样均小于 200ms；长输入最大 323.32ms，混合输入最大 281.97ms，网络偶有长尾。超过现有 200ms 观测期限的请求仍被客户端丢弃，不延长陈旧动作的期限。这些时延不包含本地特征生成、游戏采样和输入执行；实机验证需记录过期/拒绝计数。报告见 `docs/benchmarks/remote-service-v005.json`。
 
 ## 为什么原来的 L40S 比 4060 慢
 

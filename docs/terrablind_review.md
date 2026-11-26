@@ -5,6 +5,10 @@
 - [用户所指视频](https://www.bilibili.com/video/BV1Boe26JEh4/)
 - [TerraBlind](https://github.com/Reisenbug/TerraBlind)
 
+2026-11-25 完整仓库核对：已克隆 main 并按 README 读取 dev/agent，保留固定提交与本地副本。Jev Boss 战确实直接调用 TypeSafe，但仓库另外包含 `tests/Rl` 独立 PPO 移动实验，不能将“这条 Jev 链路不训练”扩展为“整个仓库没有训练”。完整文本/高阶事实计算、开发分支攻击反馈与以撒离线预览见 [源码迁移分析](TERRABLIND_ISAAC_TRANSFER.md)。
+
+2026-11-25 补充：已重新下载 `Dodge.cs`、`DecisionFacts.cs`、`ProjectileAim.cs`、`JevPrior.cs` 等核对。战斗仍调用带通用原则和候选说明的 `choice`，DPS/受伤是诊断记录、选择计数用于随机对照；不是公开的战斗训练实现。TypeSafe 官方另支持有序 `Score` 与同状态多问题，但不能据此推断 TerraBlind 后端训练标签。与本项目 SFT/AWR/偏好学习的对应分析见 [细粒度反馈研究](COMBAT_FINE_FEEDBACK_SFT_REVIEW.md)。
+
 ## 已核实的实现
 
 TerraBlind 使用 tModLoader 获取真实 Terraria 状态。它的总体结构是 LLM 规划、Jev 现场判断、游戏执行层持续操作。
